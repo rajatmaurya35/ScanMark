@@ -3,7 +3,9 @@ services:
     name: scanmark
     env: python
     region: oregon
-    buildCommand: pip install -r requirements.txt
+    buildCommand: |
+      apt-get update && apt-get install -y libgl1-mesa-glx libglib2.0-0
+      pip install -r requirements.txt
     startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --threads 8 --timeout 0
     envVars:
       - key: FLASK_ENV
@@ -18,5 +20,7 @@ services:
         generateValue: true
       - key: PYTHON_VERSION
         value: 3.10.12
+      - key: DEBIAN_FRONTEND
+        value: noninteractive
     healthCheckPath: /health
     autoDeploy: true
