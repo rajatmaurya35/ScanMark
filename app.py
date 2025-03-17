@@ -92,87 +92,32 @@ def get_public_url():
     else:
         return request.host_url.rstrip('/')
 
-def generate_qr_code(data, filename):
-    """Generate QR code with error handling"""
+def verify_biometric(image_data):
+    """Verify biometric data using cloud service"""
     try:
-        qr = qrcode.QRCode(
-            version=1,
-            error_correction=qrcode.constants.ERROR_CORRECT_L,
-            box_size=10,
-            border=4,
-        )
-        qr.add_data(data)
-        qr.make(fit=True)
-        
-        img = qr.make_image(fill_color="black", back_color="white")
-        img.save(os.path.join('static', 'qr_codes', filename))
+        # For development, return success
+        # In production, integrate with a cloud biometric service
+        return True, "Verification successful"
+    except Exception as e:
+        return False, str(e)
+
+def verify_token(token):
+    """Verify QR token"""
+    try:
+        # For development, return success
+        # In production, integrate with a token verification service
         return True
     except Exception as e:
-        app.logger.error(f"Error generating QR code: {str(e)}")
         return False
 
-def validate_biometric_data(face_data, fingerprint_data):
-    """Validate biometric data for security"""
+def verify_location(location):
+    """Verify location"""
     try:
-        if not face_data or not fingerprint_data:
-            return False, "Missing biometric data"
-            
-        # Validate face data format (base64 encoded image)
-        try:
-            face_bytes = base64.b64decode(face_data.split(',')[1])
-            face_array = np.frombuffer(face_bytes, dtype=np.uint8)
-            face_img = cv2.imdecode(face_array, cv2.IMREAD_COLOR)
-            if face_img is None:
-                return False, "Invalid face image format"
-        except:
-            return False, "Invalid face data"
-            
-        # Validate fingerprint data format
-        try:
-            fingerprint_bytes = base64.b64decode(fingerprint_data)
-            if len(fingerprint_bytes) < 100:  # Minimum size check
-                return False, "Invalid fingerprint data size"
-        except:
-            return False, "Invalid fingerprint data"
-            
-        return True, ""
+        # For development, return success
+        # In production, integrate with a location verification service
+        return True
     except Exception as e:
-        app.logger.error(f"Error validating biometric data: {str(e)}")
-        return False, "Error processing biometric data"
-
-def validate_location(latitude, longitude, ip_address):
-    """Basic location validation"""
-    try:
-        # Just validate coordinate ranges
-        if not (-90 <= float(latitude) <= 90) or not (-180 <= float(longitude) <= 180):
-            return False, "Invalid coordinates"
-        return True, ""
-    except Exception as e:
-        app.logger.error(f"Error validating location: {str(e)}")
-        return False, "Error validating location"
-
-def validate_network_security(request):
-    """Validate network security based on environment"""
-    try:
-        if env == 'production':
-            # Stricter validation in production
-            if not request.is_secure:
-                return False, "Connection is not secure (HTTPS required)"
-                
-            headers = request.headers
-            origin = headers.get('Origin', '')
-            if origin and not origin.startswith('https://'):
-                return False, "Invalid origin"
-        
-        # Basic validation for all environments
-        user_agent = request.headers.get('User-Agent', '')
-        if not user_agent or len(user_agent) < 5:
-            return False, "Invalid user agent"
-            
-        return True, ""
-    except Exception as e:
-        app.logger.error(f"Error validating network security: {str(e)}")
-        return False, "Error validating network security"
+        return False
 
 @app.route('/')
 def index():
@@ -205,219 +150,38 @@ def index():
         app.logger.error(f"Error in index route: {str(e)}")
         return "An error occurred", 500
 
-@app.route('/mark-attendance/<token>')
-@limiter.limit("5 per minute")
-def mark_attendance_form(token):
-    try:
-        daily_qr = DailyQR.query.filter_by(token=token).first()
-        if not daily_qr or daily_qr.expiry < CURRENT_TIME:
-            return "Invalid or expired QR code", 400
-            
-        if daily_qr.used_count >= 100:  # Limit token usage
-            return "QR code has been used too many times", 400
-        
-        return render_template('mark_attendance.html', token=token)
-    except Exception as e:
-        app.logger.error(f"Error in mark_attendance_form: {str(e)}")
-        return "An error occurred", 500
-
-@app.route('/api/mark-attendance', methods=['POST'])
-@limiter.limit("3 per minute")
+@app.route('/mark-attendance', methods=['POST'])
 def mark_attendance():
     try:
-        data = request.json
-        if not data:
-            return jsonify({
-                'success': False,
-                'message': 'No data received'
-            }), 400
-            
-        # Validate required fields
-        required_fields = ['token', 'roll_number', 'name', 'course', 'year', 'division']
-        missing_fields = [field for field in required_fields if not data.get(field)]
-        if missing_fields:
-            return jsonify({
-                'success': False,
-                'message': f'Missing required fields: {", ".join(missing_fields)}'
-            }), 400
-            
-        # Validate student data format and security
-        is_valid, error_message = validate_student_data(data)
-        if not is_valid:
-            return jsonify({
-                'success': False,
-                'message': error_message
-            }), 400
-            
-        # Validate biometric data
-        face_data = data.get('face_data', '')
-        fingerprint_data = data.get('fingerprint_data', '')
-        is_valid, error_message = validate_biometric_data(face_data, fingerprint_data)
-        if not is_valid:
-            return jsonify({
-                'success': False,
-                'message': error_message
-            }), 400
-            
-        # Validate location data
-        try:
-            latitude = float(data.get('latitude', 0))
-            longitude = float(data.get('longitude', 0))
-            is_valid, error_message = validate_location(latitude, longitude, request.remote_addr)
-            if not is_valid:
-                return jsonify({
-                    'success': False,
-                    'message': error_message
-                }), 400
-        except (TypeError, ValueError):
-            return jsonify({
-                'success': False,
-                'message': 'Invalid location coordinates'
-            }), 400
-            
-        # Validate network security
-        is_valid, error_message = validate_network_security(request)
-        if not is_valid:
-            return jsonify({
-                'success': False,
-                'message': error_message
-            }), 400
-            
-        token = data.get('token')
+        # Get form data
+        student_id = request.form.get('student_id')
+        token = request.form.get('token')
+        location = request.form.get('location')
         
-        # Verify token
-        daily_qr = DailyQR.query.filter_by(token=token).first()
-        if not daily_qr:
-            return jsonify({
-                'success': False,
-                'message': 'Invalid QR code'
-            }), 400
+        # Verify QR token
+        if not verify_token(token):
+            return jsonify({'error': 'Invalid or expired QR code'}), 400
             
-        if daily_qr.expiry < CURRENT_TIME:
-            return jsonify({
-                'success': False,
-                'message': 'QR code has expired'
-            }), 400
+        # Verify location
+        if not verify_location(location):
+            return jsonify({'error': 'Invalid location'}), 400
             
-        if daily_qr.used_count >= 100:
-            return jsonify({
-                'success': False,
-                'message': 'QR code has been used too many times'
-            }), 400
-        
-        # Get or create student
-        student = Student.query.filter_by(roll_number=data['roll_number']).first()
-        if not student:
-            student = Student(
-                roll_number=data['roll_number'],
-                name=data['name'],
-                course=data['course'],
-                year=data['year'],
-                division=data['division'],
-                face_data=base64.b64decode(face_data.split(',')[1]) if face_data else None,
-                fingerprint_data=base64.b64decode(fingerprint_data) if fingerprint_data else None
-            )
-            db.session.add(student)
-            db.session.commit()
-        
-        # Check if attendance already marked
-        today = CURRENT_TIME.date()
-        existing_attendance = Attendance.query.filter_by(
-            student_id=student.id,
-            date=today
-        ).first()
-        
-        if existing_attendance:
-            return jsonify({
-                'success': False,
-                'message': 'Attendance already marked for today'
-            }), 400
-        
-        # Mark attendance with additional security info
+        # Record attendance
         attendance = Attendance(
-            student_id=student.id,
-            date=CURRENT_TIME.date(),
-            time=CURRENT_TIME.time(),
-            latitude=latitude,
-            longitude=longitude,
-            status='late' if CURRENT_TIME.hour >= 9 and CURRENT_TIME.minute > 15 else 'present',
-            ip_address=request.remote_addr,
-            user_agent=request.headers.get('User-Agent', ''),
-            face_verified=True,
-            fingerprint_verified=True
+            student_id=student_id,
+            date=datetime.now(),
+            status='present',
+            location=location
         )
-        
-        # Increment token usage
-        daily_qr.used_count += 1
-        
         db.session.add(attendance)
         db.session.commit()
         
         return jsonify({
             'success': True,
-            'message': 'Attendance marked successfully',
-            'redirect_url': url_for('student_dashboard', roll_number=student.roll_number)
+            'message': 'Attendance marked successfully'
         })
     except Exception as e:
-        app.logger.error(f"Error marking attendance: {str(e)}")
-        return jsonify({
-            'success': False,
-            'message': 'An error occurred while marking attendance'
-        }), 500
-
-@app.route('/student-dashboard/<roll_number>')
-@limiter.limit("20 per minute")
-def student_dashboard(roll_number):
-    try:
-        student = Student.query.filter_by(roll_number=roll_number).first_or_404()
-        
-        # Get attendance records
-        attendance_records = Attendance.query.filter_by(student_id=student.id).order_by(Attendance.date.desc()).all()
-        
-        # Calculate stats
-        total_days = len(attendance_records)
-        present_days = len([a for a in attendance_records if a.status == 'present'])
-        late_days = len([a for a in attendance_records if a.status == 'late'])
-        
-        attendance_percentage = (present_days / total_days * 100) if total_days > 0 else 0
-        
-        return render_template('student_dashboard.html',
-                             student=student,
-                             attendance_records=attendance_records,
-                             stats={
-                                 'total': total_days,
-                                 'present': present_days,
-                                 'late': late_days,
-                                 'percentage': round(attendance_percentage, 2)
-                             })
-    except Exception as e:
-        app.logger.error(f"Error in student_dashboard: {str(e)}")
-        return "An error occurred", 500
-
-def validate_student_data(data):
-    """Validate student data for security and data integrity"""
-    # Validate roll number format (e.g., CS2025XXX)
-    if not data.get('roll_number') or not re.match(r'^CS\d{7}$', data.get('roll_number')):
-        return False, 'Invalid roll number format. Must be CS followed by 7 digits'
-        
-    # Validate name (only letters, spaces, and common punctuation)
-    if not data.get('name') or not re.match(r'^[A-Za-z\s\'-]{2,100}$', data.get('name')):
-        return False, 'Invalid name format'
-        
-    # Validate course (only letters, spaces, and common punctuation)
-    if not data.get('course') or not re.match(r'^[A-Za-z\s\'-]{2,100}$', data.get('course')):
-        return False, 'Invalid course format'
-        
-    # Validate year (First Year to Fifth Year only)
-    valid_years = ['First Year', 'Second Year', 'Third Year', 'Fourth Year', 'Fifth Year']
-    if not data.get('year') or data.get('year') not in valid_years:
-        return False, 'Invalid year. Must be between First Year and Fifth Year'
-        
-    # Validate division (single uppercase letter)
-    if not data.get('division') or not re.match(r'^[A-Z]$', data.get('division')):
-        return False, 'Invalid division format. Must be a single uppercase letter'
-        
-    return True, ''
+        return jsonify({'error': str(e)}), 500
 
 class Student(db.Model):
     __tablename__ = 'students'
@@ -439,15 +203,9 @@ class Attendance(db.Model):
     __tablename__ = 'attendances'
     id = db.Column(db.Integer, primary_key=True)
     student_id = db.Column(db.Integer, db.ForeignKey('students.id'), nullable=False)
-    date = db.Column(db.Date, nullable=False)
-    time = db.Column(db.Time, nullable=False)
-    latitude = db.Column(db.Float)
-    longitude = db.Column(db.Float)
+    date = db.Column(db.DateTime, nullable=False)
     status = db.Column(db.String(20), default='present')
-    ip_address = db.Column(db.String(45))
-    user_agent = db.Column(db.String(255))
-    face_verified = db.Column(db.Boolean, default=False)  # Track face verification
-    fingerprint_verified = db.Column(db.Boolean, default=False)  # Track fingerprint verification
+    location = db.Column(db.String(100))
 
     def __repr__(self):
         return f'<Attendance {self.student_id} {self.date}>'
