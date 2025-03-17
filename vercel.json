@@ -1,6 +1,5 @@
 {
     "version": 2,
-    "name": "scanmark",
     "builds": [
         {
             "src": "wsgi.py",
@@ -18,11 +17,7 @@
         },
         {
             "src": "/(.*)",
-            "dest": "/wsgi.py"
+            "dest": "wsgi.py"
         }
-    ],
-    "env": {
-        "FLASK_ENV": "production",
-        "PYTHONPATH": "."
-    }
+    ]
 }
