@@ -10,7 +10,7 @@ from io import BytesIO
 import qrcode
 from PIL import Image
 import cv2
-from deepface import DeepFace
+import requests
 from config import config
 
 app = Flask(__name__)
@@ -44,7 +44,7 @@ class Student(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     student_id = db.Column(db.String(20), unique=True, nullable=False)
     name = db.Column(db.String(100))
-    face_encoding = db.Column(db.LargeBinary)
+    face_encoding = db.Column(db.Text)  # Store face features as JSON
     fingerprint_template = db.Column(db.LargeBinary)
     registered_on = db.Column(db.DateTime, default=datetime.now)
     attendances = db.relationship('Attendance', backref='student', lazy=True)
@@ -66,7 +66,7 @@ class QRToken(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.now)
 
 def process_face_image(face_data):
-    """Process face image with error handling and retries"""
+    """Process face image using simple feature extraction"""
     try:
         # Remove data URL prefix if present
         if ',' in face_data:
@@ -77,37 +77,51 @@ def process_face_image(face_data):
         nparr = np.frombuffer(image_data, np.uint8)
         img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
         
-        # Convert BGR to RGB (DeepFace expects RGB)
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        # Convert to grayscale
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         
-        # Get face embedding
-        embedding = DeepFace.represent(img, model_name="Facenet", enforce_detection=True)
-        if not embedding:
-            return None, "No face detected"
+        # Use SIFT for feature extraction
+        sift = cv2.SIFT_create()
+        keypoints, descriptors = sift.detectAndCompute(gray, None)
         
-        # Convert embedding to bytes
-        embedding_bytes = np.array(embedding).tobytes()
-        return embedding_bytes, None
+        if descriptors is None:
+            return None, "No facial features detected"
+        
+        # Convert descriptors to list for JSON storage
+        features = descriptors.tolist()
+        return json.dumps(features), None
     except Exception as e:
         return None, f"Face processing error: {str(e)}"
 
 def verify_face(stored_encoding, new_face_data, threshold=0.7):
-    """Verify face match with improved error handling"""
+    """Verify face match using SIFT features"""
     try:
-        # Process new face image
-        new_encoding, error = process_face_image(new_face_data)
+        # Get features from new face
+        new_features_json, error = process_face_image(new_face_data)
         if error:
             return False, error
         
-        # Convert stored encoding back to numpy array
-        stored_embedding = np.frombuffer(stored_encoding, dtype=np.float32)
-        new_embedding = np.frombuffer(new_encoding, dtype=np.float32)
+        # Convert stored and new features to numpy arrays
+        stored_features = np.array(json.loads(stored_encoding))
+        new_features = np.array(json.loads(new_features_json))
         
-        # Calculate cosine similarity
-        similarity = np.dot(stored_embedding, new_embedding) / (
-            np.linalg.norm(stored_embedding) * np.linalg.norm(new_embedding)
-        )
-        return similarity > threshold, None
+        # Use FLANN for feature matching
+        FLANN_INDEX_KDTREE = 1
+        index_params = dict(algorithm=FLANN_INDEX_KDTREE, trees=5)
+        search_params = dict(checks=50)
+        flann = cv2.FlannBasedMatcher(index_params, search_params)
+        
+        matches = flann.knnMatch(stored_features, new_features, k=2)
+        
+        # Apply ratio test
+        good_matches = []
+        for m, n in matches:
+            if m.distance < 0.7 * n.distance:
+                good_matches.append(m)
+        
+        # Calculate match percentage
+        match_percent = len(good_matches) / len(matches)
+        return match_percent > threshold, None
     except Exception as e:
         return False, f"Face verification error: {str(e)}"
 
@@ -205,7 +219,7 @@ def register_student():
             return jsonify({'error': 'Student ID already registered'}), 409
         
         # Process face image
-        face_encoding, error = process_face_image(face_data)
+        face_features, error = process_face_image(face_data)
         if error:
             return jsonify({'error': error}), 400
         
@@ -213,7 +227,7 @@ def register_student():
         student = Student(
             student_id=student_id,
             name=name,
-            face_encoding=face_encoding,
+            face_encoding=face_features,
             fingerprint_template=base64.b64decode(fingerprint_data)
         )
         
