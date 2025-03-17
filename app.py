@@ -10,6 +10,8 @@ from io import BytesIO
 import qrcode
 from PIL import Image
 import cv2
+import face_recognition
+import io
 import requests
 from config import config
 
@@ -66,64 +68,50 @@ class QRToken(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.now)
 
 def process_face_image(face_data):
-    """Process face image using simple feature extraction"""
     try:
-        # Remove data URL prefix if present
-        if ',' in face_data:
-            face_data = face_data.split(',')[1]
-        
         # Decode base64 image
-        image_data = base64.b64decode(face_data)
-        nparr = np.frombuffer(image_data, np.uint8)
-        img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        image_data = base64.b64decode(face_data.split(',')[1])
+        image = face_recognition.load_image_file(io.BytesIO(image_data))
         
-        # Convert to grayscale
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        # Find face locations and encodings
+        face_locations = face_recognition.face_locations(image)
+        if not face_locations:
+            return None, "No face detected in the image"
         
-        # Use SIFT for feature extraction
-        sift = cv2.SIFT_create()
-        keypoints, descriptors = sift.detectAndCompute(gray, None)
+        # Get face encodings
+        face_encodings = face_recognition.face_encodings(image, face_locations)
+        if not face_encodings:
+            return None, "Could not encode face features"
+            
+        # Convert the first face encoding to a list for JSON serialization
+        face_encoding = face_encodings[0].tolist()
+        return face_encoding, None
         
-        if descriptors is None:
-            return None, "No facial features detected"
-        
-        # Convert descriptors to list for JSON storage
-        features = descriptors.tolist()
-        return json.dumps(features), None
     except Exception as e:
-        return None, f"Face processing error: {str(e)}"
+        print(f"Error processing face: {str(e)}")
+        return None, str(e)
 
-def verify_face(stored_encoding, new_face_data, threshold=0.7):
-    """Verify face match using SIFT features"""
+def verify_face(stored_encoding, new_face_data):
     try:
-        # Get features from new face
-        new_features_json, error = process_face_image(new_face_data)
+        # Process new face image
+        new_encoding, error = process_face_image(new_face_data)
         if error:
             return False, error
+            
+        # Convert stored encoding from string back to list
+        stored_encoding = json.loads(stored_encoding)
         
-        # Convert stored and new features to numpy arrays
-        stored_features = np.array(json.loads(stored_encoding))
-        new_features = np.array(json.loads(new_features_json))
+        # Compare faces
+        match = face_recognition.compare_faces(
+            [np.array(stored_encoding)], 
+            np.array(new_encoding),
+            tolerance=0.6
+        )[0]
         
-        # Use FLANN for feature matching
-        FLANN_INDEX_KDTREE = 1
-        index_params = dict(algorithm=FLANN_INDEX_KDTREE, trees=5)
-        search_params = dict(checks=50)
-        flann = cv2.FlannBasedMatcher(index_params, search_params)
-        
-        matches = flann.knnMatch(stored_features, new_features, k=2)
-        
-        # Apply ratio test
-        good_matches = []
-        for m, n in matches:
-            if m.distance < 0.7 * n.distance:
-                good_matches.append(m)
-        
-        # Calculate match percentage
-        match_percent = len(good_matches) / len(matches)
-        return match_percent > threshold, None
+        return match, None
     except Exception as e:
-        return False, f"Face verification error: {str(e)}"
+        print(f"Error verifying face: {str(e)}")
+        return False, str(e)
 
 def verify_fingerprint(stored_template, new_template, threshold=0.8):
     """Verify fingerprint match with improved error handling"""
@@ -227,7 +215,7 @@ def register_student():
         student = Student(
             student_id=student_id,
             name=name,
-            face_encoding=face_features,
+            face_encoding=json.dumps(face_features),
             fingerprint_template=base64.b64decode(fingerprint_data)
         )
         
