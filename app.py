@@ -2,7 +2,7 @@ import os
 import json
 import secrets
 from datetime import datetime, timedelta
-from flask import Flask, render_template, request, jsonify, send_file
+from flask import Flask, render_template, request, jsonify, send_file, make_response
 from flask_sqlalchemy import SQLAlchemy
 from io import BytesIO
 import qrcode
@@ -14,6 +14,14 @@ app.config.from_object(config[env])
 
 # Initialize database
 db = SQLAlchemy(app)
+
+# Enable CORS
+@app.after_request
+def after_request(response):
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE')
+    return response
 
 class Student(db.Model):
     __tablename__ = 'students'
@@ -107,12 +115,14 @@ def get_qr_code():
     """Generate new QR code for attendance"""
     try:
         img_io, token, expiry = generate_qr_code()
-        return send_file(
+        response = make_response(send_file(
             img_io,
             mimetype='image/png',
             as_attachment=True,
             download_name='attendance_qr.png'
-        )
+        ))
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        return response
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
