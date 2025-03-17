@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request, send_file
+from flask import Flask, jsonify, request, send_file, render_template
 import os
 import json
 import secrets
@@ -9,7 +9,6 @@ from flask_sqlalchemy import SQLAlchemy
 from io import BytesIO
 import qrcode
 from PIL import Image
-import cv2
 
 app = Flask(__name__)
 
@@ -55,32 +54,45 @@ class QRToken(db.Model):
     expiry = db.Column(db.DateTime, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.now)
 
-# Create tables
-with app.app_context():
-    db.create_all()
-
-def compare_faces(face1, face2, threshold=0.6):
-    """Compare two face templates using cosine similarity"""
+def process_image_template(image_data):
+    """Process base64 image and return simplified template"""
     try:
-        face1_array = np.frombuffer(face1, dtype=np.float32)
-        face2_array = np.frombuffer(face2, dtype=np.float32)
-        similarity = np.dot(face1_array, face2_array) / (np.linalg.norm(face1_array) * np.linalg.norm(face2_array))
-        return similarity > threshold
+        # Decode base64 image
+        image_data = base64.b64decode(image_data.split(',')[1])
+        image = Image.open(BytesIO(image_data))
+        
+        # Convert to grayscale and resize
+        image = image.convert('L').resize((64, 64))
+        
+        # Convert to numpy array and normalize
+        array = np.array(image)
+        array = array.astype(np.float32) / 255.0
+        
+        return array.tobytes()
+    except Exception as e:
+        return None
+
+def compare_templates(template1, template2, threshold=0.7):
+    """Compare two templates using simple correlation"""
+    try:
+        # Convert to numpy arrays
+        array1 = np.frombuffer(template1, dtype=np.float32).reshape(64, 64)
+        array2 = np.frombuffer(template2, dtype=np.float32).reshape(64, 64)
+        
+        # Calculate correlation
+        correlation = np.corrcoef(array1.flatten(), array2.flatten())[0, 1]
+        return correlation > threshold
     except Exception as e:
         return False
 
-def compare_fingerprints(fp1, fp2, threshold=0.7):
-    """Compare two fingerprint templates"""
-    try:
-        fp1_array = np.frombuffer(fp1, dtype=np.uint8)
-        fp2_array = np.frombuffer(fp2, dtype=np.uint8)
-        similarity = np.sum(fp1_array == fp2_array) / len(fp1_array)
-        return similarity > threshold
-    except Exception as e:
-        return False
+@app.route('/')
+def index():
+    """Home page"""
+    return render_template('index.html')
 
 @app.route('/health')
 def health():
+    """Health check endpoint"""
     try:
         db.session.execute('SELECT 1')
         return jsonify({'status': 'healthy', 'database': 'connected'})
@@ -89,6 +101,7 @@ def health():
 
 @app.route('/generate-qr')
 def generate_qr():
+    """Generate QR code for attendance"""
     try:
         # Generate token and expiry
         token = secrets.token_urlsafe(16)
@@ -116,6 +129,7 @@ def generate_qr():
 
 @app.route('/register', methods=['POST'])
 def register():
+    """Register new student with biometric data"""
     try:
         data = request.form
         student_id = data.get('student_id')
@@ -126,12 +140,19 @@ def register():
         if not all([student_id, name, face_data, fingerprint_data]):
             return jsonify({'error': 'Missing required fields'}), 400
         
+        # Process templates
+        face_template = process_image_template(face_data)
+        finger_template = process_image_template(fingerprint_data)
+        
+        if not face_template or not finger_template:
+            return jsonify({'error': 'Failed to process biometric data'}), 400
+        
         # Create student
         student = Student(
             student_id=student_id,
             name=name,
-            face_template=base64.b64decode(face_data),
-            fingerprint_template=base64.b64decode(fingerprint_data)
+            face_template=face_template,
+            fingerprint_template=finger_template
         )
         
         db.session.add(student)
@@ -143,6 +164,7 @@ def register():
 
 @app.route('/mark-attendance', methods=['POST'])
 def mark_attendance():
+    """Mark attendance with biometric verification"""
     try:
         data = request.form
         student_id = data.get('student_id')
@@ -164,9 +186,16 @@ def mark_attendance():
         if not student:
             return jsonify({'error': 'Student not found'}), 404
         
+        # Process and verify templates
+        face_template = process_image_template(face_data)
+        finger_template = process_image_template(fingerprint_data)
+        
+        if not face_template or not finger_template:
+            return jsonify({'error': 'Failed to process biometric data'}), 400
+        
         # Verify biometrics
-        face_match = compare_faces(student.face_template, base64.b64decode(face_data))
-        finger_match = compare_fingerprints(student.fingerprint_template, base64.b64decode(fingerprint_data))
+        face_match = compare_templates(student.face_template, face_template)
+        finger_match = compare_templates(student.fingerprint_template, finger_template)
         
         if not (face_match and finger_match):
             return jsonify({'error': 'Biometric verification failed'}), 401
