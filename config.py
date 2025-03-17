@@ -45,7 +45,13 @@ class ProductionConfig(Config):
     DEVELOPMENT = False
     SESSION_COOKIE_SECURE = True
     PERMANENT_SESSION_LIFETIME = timedelta(hours=12)
-    SQLALCHEMY_DATABASE_URI = os.getenv('DATABASE_URL')
+    SQLALCHEMY_DATABASE_URI = os.getenv('DATABASE_URL', 'postgresql://neondb_owner:npg_iaL8ckJzYN7X@ep-shy-smoke-a5mn2t1d-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require')
+    SQLALCHEMY_ENGINE_OPTIONS = {
+        'pool_size': 5,
+        'max_overflow': 2,
+        'pool_timeout': 30,
+        'pool_recycle': 1800,
+    }
     if SQLALCHEMY_DATABASE_URI:
         # Neon provides standard postgresql:// URLs
         if SQLALCHEMY_DATABASE_URI.startswith('postgres://'):

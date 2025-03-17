@@ -1,0 +1,16 @@
+[build]
+command = "pip install -r requirements.txt"
+publish = "templates"
+functions = "functions"
+
+[build.environment]
+PYTHON_VERSION = "3.13.0"
+
+[[redirects]]
+from = "/*"
+to = "/index.html"
+status = 200
+
+[functions]
+directory = "functions"
+node_bundler = "esbuild"
