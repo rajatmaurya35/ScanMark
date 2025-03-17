@@ -1,13 +1,29 @@
 services:
   - type: web
     name: scanmark
-    env: docker
+    env: python
     region: oregon
-    dockerfilePath: ./Dockerfile
+    buildCommand: |
+      sudo apt-get update
+      sudo apt-get install -y libgl1-mesa-glx libglib2.0-0 cmake python3-dev build-essential pkg-config
+      pip install --upgrade pip
+      pip install wheel setuptools
+      pip install -r requirements.txt
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --threads 8 --timeout 0
     envVars:
+      - key: FLASK_ENV
+        value: production
+      - key: PYTHONPATH
+        value: .
+      - key: FLASK_APP
+        value: app.py
       - key: DATABASE_URL
         value: postgresql://neondb_owner:npg_iaL8ckJzYN7X@ep-shy-smoke-a5mn2t1d-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require
       - key: SECRET_KEY
         generateValue: true
+      - key: PYTHON_VERSION
+        value: 3.10.12
+      - key: DEBIAN_FRONTEND
+        value: noninteractive
     healthCheckPath: /health
     autoDeploy: true
