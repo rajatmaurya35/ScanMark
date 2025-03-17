@@ -5,8 +5,10 @@ import base64
 import logging
 import numpy as np
 import traceback
+import json
+import secrets
 from datetime import datetime, timedelta
-from flask import Flask, render_template, request, jsonify, url_for, redirect, session
+from flask import Flask, render_template, request, jsonify, url_for, redirect, session, send_file
 from flask_sqlalchemy import SQLAlchemy
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
@@ -14,6 +16,7 @@ from flask_talisman import Talisman
 from werkzeug.middleware.proxy_fix import ProxyFix
 from logging.config import dictConfig
 from pythonjsonlogger import jsonlogger
+from io import BytesIO
 from config import config
 
 # Configure logging
@@ -45,9 +48,6 @@ app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 # Load configuration
 env = os.getenv('FLASK_ENV', 'development')
 app.config.from_object(config[env])
-
-# Current time for testing (2025-03-17 09:30:25+05:30)
-CURRENT_TIME = datetime(2025, 3, 17, 9, 30, 25)
 
 # Initialize security extensions
 Talisman(app, 
@@ -101,59 +101,76 @@ def verify_biometric(image_data):
     except Exception as e:
         return False, str(e)
 
+def generate_qr_code():
+    """Generate QR code with token and expiry"""
+    token = secrets.token_urlsafe(32)
+    expiry = datetime.now() + timedelta(hours=24)
+    
+    qr = qrcode.QRCode(
+        version=1,
+        error_correction=qrcode.constants.ERROR_CORRECT_L,
+        box_size=10,
+        border=4,
+    )
+    
+    qr_data = {
+        'token': token,
+        'expiry': expiry.isoformat()
+    }
+    
+    qr.add_data(json.dumps(qr_data))
+    qr.make(fit=True)
+    
+    img = qr.make_image(fill_color="black", back_color="white")
+    img_io = BytesIO()
+    img.save(img_io, 'PNG')
+    img_io.seek(0)
+    
+    return img_io, token, expiry
+
 def verify_token(token):
-    """Verify QR token"""
+    """Verify QR token with expiry check"""
     try:
-        # For development, return success
-        # In production, integrate with a token verification service
+        # In production, check against database
+        # For now, verify token format and basic validation
+        if not token or len(token) != 43:  # URL-safe base64 token length
+            return False
+            
+        # Check if token is expired (24 hours)
+        token_data = json.loads(token)
+        expiry = datetime.fromisoformat(token_data['expiry'])
+        if datetime.now() > expiry:
+            return False
+            
         return True
-    except Exception as e:
+    except:
         return False
 
-def verify_location(location):
-    """Verify location"""
+@app.route('/generate-qr', methods=['GET'])
+def get_qr_code():
+    """Generate new QR code for attendance"""
     try:
-        # For development, return success
-        # In production, integrate with a location verification service
-        return True
-    except Exception as e:
-        return False
-
-@app.route('/')
-def index():
-    try:
-        # Generate new QR code
-        token = os.urandom(16).hex()
-        expiry = CURRENT_TIME + app.config['QR_CODE_EXPIRY']
+        img_io, token, expiry = generate_qr_code()
         
-        daily_qr = DailyQR(
-            token=token,
-            expiry=expiry,
-            used_count=0
+        # Store QR data in memory (in production, use database)
+        app.config['CURRENT_QR'] = {
+            'token': token,
+            'expiry': expiry
+        }
+        
+        return send_file(
+            img_io,
+            mimetype='image/png',
+            as_attachment=True,
+            download_name='attendance_qr.png'
         )
-        db.session.add(daily_qr)
-        db.session.commit()
-        
-        # Generate QR code with public URL
-        public_url = get_public_url()
-        qr_url = f"{public_url}/mark-attendance?token={token}"
-        filename = f"qr_{token}.png"
-        
-        if not generate_qr_code(qr_url, filename):
-            return "Error generating QR code", 500
-        
-        return render_template('index.html', 
-                             qr_code=url_for('static', filename=f'qr_codes/{filename}'),
-                             token=token,
-                             expiry=expiry)
     except Exception as e:
-        app.logger.error(f"Error in index route: {str(e)}")
-        return "An error occurred", 500
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/mark-attendance', methods=['POST'])
 def mark_attendance():
+    """Mark attendance with location and token verification"""
     try:
-        # Get form data
         student_id = request.form.get('student_id')
         token = request.form.get('token')
         location = request.form.get('location')
@@ -162,9 +179,13 @@ def mark_attendance():
         if not verify_token(token):
             return jsonify({'error': 'Invalid or expired QR code'}), 400
             
-        # Verify location
-        if not verify_location(location):
-            return jsonify({'error': 'Invalid location'}), 400
+        # Basic location validation
+        try:
+            loc_data = json.loads(location)
+            if not (-90 <= loc_data['latitude'] <= 90) or not (-180 <= loc_data['longitude'] <= 180):
+                return jsonify({'error': 'Invalid location coordinates'}), 400
+        except:
+            return jsonify({'error': 'Invalid location data'}), 400
             
         # Record attendance
         attendance = Attendance(
@@ -191,7 +212,7 @@ class Student(db.Model):
     course = db.Column(db.String(100))
     year = db.Column(db.String(20))
     division = db.Column(db.String(10))
-    registered_on = db.Column(db.DateTime, default=CURRENT_TIME)
+    registered_on = db.Column(db.DateTime, default=datetime.now)
     face_data = db.Column(db.LargeBinary, nullable=True)  # Store face recognition data
     fingerprint_data = db.Column(db.LargeBinary, nullable=True)  # Store fingerprint data
     attendances = db.relationship('Attendance', backref='student', lazy=True)
@@ -209,16 +230,6 @@ class Attendance(db.Model):
 
     def __repr__(self):
         return f'<Attendance {self.student_id} {self.date}>'
-
-class DailyQR(db.Model):
-    __tablename__ = 'daily_qrs'
-    id = db.Column(db.Integer, primary_key=True)
-    token = db.Column(db.String(100), unique=True, nullable=False)
-    expiry = db.Column(db.DateTime, nullable=False)
-    used_count = db.Column(db.Integer, default=0)
-
-    def __repr__(self):
-        return f'<DailyQR {self.token}>'
 
 if __name__ == '__main__':
     # Initialize database
