@@ -3,7 +3,7 @@
     "name": "scanmark",
     "builds": [
         {
-            "src": "vercel_app.py",
+            "src": "wsgi.py",
             "use": "@vercel/python"
         },
         {
@@ -18,7 +18,11 @@
         },
         {
             "src": "/(.*)",
-            "dest": "/vercel_app.py"
+            "dest": "/wsgi.py"
         }
-    ]
+    ],
+    "env": {
+        "FLASK_ENV": "production",
+        "PYTHONPATH": "."
+    }
 }
