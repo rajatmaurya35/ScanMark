@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Student Registration</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        body {
+            background: #f8f9fa;
+            min-height: 100vh;
+        }
+        .biometric-container {
+            position: relative;
+            width: 100%;
+            max-width: 300px;
+            margin: 0 auto;
+            aspect-ratio: 1;
+            border-radius: 50%;
+            overflow: hidden;
+            border: 3px solid #4e73df;
+        }
+        #video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        #canvas {
+            display: none;
+        }
+        .capture-btn {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 100;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: #fff;
+            border: 3px solid #4e73df;
+            padding: 0;
+        }
+        .capture-btn:active {
+            transform: translateX(-50%) scale(0.95);
+        }
+        .capture-btn::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: #4e73df;
+        }
+        .preview-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .fingerprint-area {
+            width: 200px;
+            height: 200px;
+            margin: 0 auto;
+            border-radius: 50%;
+            background: #e9ecef;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 4rem;
+            color: #4e73df;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .fingerprint-area:active {
+            transform: scale(0.95);
+            background: #dee2e6;
+        }
+        .permission-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: #fff;
+            z-index: 1000;
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+        .permission-icon {
+            font-size: 4rem;
+            color: #4e73df;
+            margin-bottom: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <!-- Permission Screen -->
+    <div id="permissionScreen" class="permission-screen">
+        <i class="fas fa-shield-alt permission-icon"></i>
+        <h2 class="mb-4">Required Permissions</h2>
+        <p class="mb-4">This app needs access to:</p>
+        <ul class="list-unstyled text-start mb-4">
+            <li><i class="fas fa-camera me-2"></i> Camera</li>
+            <li><i class="fas fa-fingerprint me-2"></i> Fingerprint Sensor</li>
+            <li><i class="fas fa-map-marker-alt me-2"></i> Location</li>
+        </ul>
+        <button id="grantPermissions" class="btn btn-primary btn-lg">
+            Grant Permissions
+        </button>
+    </div>
+
+    <!-- Registration Form -->
+    <div class="container py-4 d-none" id="mainContent">
+        <div class="row justify-content-center">
+            <div class="col-12 col-md-8 col-lg-6">
+                <form id="registrationForm" class="card shadow-sm">
+                    <div class="card-body">
+                        <h2 class="text-center mb-4">Student Registration</h2>
+                        
+                        <!-- Basic Info Fields -->
+                        <div class="mb-3">
+                            <label class="form-label">Roll Number</label>
+                            <input type="text" class="form-control" name="rollNumber" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Full Name</label>
+                            <input type="text" class="form-control" name="name" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Course</label>
+                            <select class="form-select" name="course" required>
+                                <option value="">Select Course</option>
+                                <option value="BCA">BCA</option>
+                                <option value="MCA">MCA</option>
+                                <option value="BTech">BTech</option>
+                            </select>
+                        </div>
+                        <div class="row">
+                            <div class="col-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Year</label>
+                                    <select class="form-select" name="year" required>
+                                        <option value="">Select Year</option>
+                                        <option value="1">First Year</option>
+                                        <option value="2">Second Year</option>
+                                        <option value="3">Third Year</option>
+                                        <option value="4">Fourth Year</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Division</label>
+                                    <select class="form-select" name="division" required>
+                                        <option value="">Select Division</option>
+                                        <option value="A">A</option>
+                                        <option value="B">B</option>
+                                        <option value="C">C</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Face Capture -->
+                        <div class="mb-4">
+                            <label class="form-label d-block text-center">Capture Face</label>
+                            <div class="biometric-container">
+                                <video id="video" autoplay playsinline></video>
+                                <canvas id="canvas"></canvas>
+                                <button type="button" id="captureBtn" class="capture-btn"></button>
+                                <img id="previewImage" class="preview-image d-none" alt="Captured face">
+                            </div>
+                        </div>
+
+                        <!-- Fingerprint -->
+                        <div class="mb-4">
+                            <label class="form-label d-block text-center">Scan Fingerprint</label>
+                            <div id="fingerprintArea" class="fingerprint-area">
+                                <i class="fas fa-fingerprint"></i>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary w-100 btn-lg">
+                            Complete Registration
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://kit.fontawesome.com/your-fontawesome-kit.js"></script>
+    <script>
+        // Handle Permissions
+        document.getElementById('grantPermissions').addEventListener('click', async () => {
+            try {
+                // Request camera permission
+                await navigator.mediaDevices.getUserMedia({ video: true });
+                
+                // Request location permission
+                await navigator.geolocation.getCurrentPosition(() => {});
+                
+                // Hide permission screen and show main content
+                document.getElementById('permissionScreen').classList.add('d-none');
+                document.getElementById('mainContent').classList.remove('d-none');
+                
+                // Initialize camera
+                initCamera();
+            } catch (error) {
+                alert('Please grant all required permissions to continue');
+                console.error('Permission error:', error);
+            }
+        });
+
+        // Camera Handling
+        async function initCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { 
+                        facingMode: 'user',
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    } 
+                });
+                const video = document.getElementById('video');
+                video.srcObject = stream;
+            } catch (err) {
+                console.error('Camera error:', err);
+                alert('Unable to access camera');
+            }
+        }
+
+        // Face Capture
+        let faceData = null;
+        document.getElementById('captureBtn').addEventListener('click', () => {
+            const video = document.getElementById('video');
+            const canvas = document.getElementById('canvas');
+            const preview = document.getElementById('previewImage');
+            const context = canvas.getContext('2d');
+
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            context.drawImage(video, 0, 0);
+            
+            faceData = canvas.toDataURL('image/jpeg');
+            preview.src = faceData;
+            preview.classList.remove('d-none');
+            video.classList.add('d-none');
+        });
+
+        // Fingerprint Simulation
+        let fingerprintData = null;
+        document.getElementById('fingerprintArea').addEventListener('click', async () => {
+            const area = document.getElementById('fingerprintArea');
+            area.style.background = '#4e73df';
+            area.style.color = '#fff';
+            
+            // Simulate fingerprint scan
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            fingerprintData = 'simulated-fingerprint-data';
+            area.innerHTML = '<i class="fas fa-check"></i>';
+        });
+
+        // Form Submission
+        document.getElementById('registrationForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            if (!faceData) {
+                alert('Please capture your face photo');
+                return;
+            }
+            
+            if (!fingerprintData) {
+                alert('Please scan your fingerprint');
+                return;
+            }
+
+            // Get location
+            let location = null;
+            try {
+                const position = await new Promise((resolve, reject) => {
+                    navigator.geolocation.getCurrentPosition(resolve, reject);
+                });
+                location = {
+                    latitude: position.coords.latitude,
+                    longitude: position.coords.longitude
+                };
+            } catch (error) {
+                console.error('Location error:', error);
+                alert('Unable to get location');
+                return;
+            }
+
+            // Gather form data
+            const formData = new FormData(e.target);
+            const data = {
+                roll_number: formData.get('rollNumber'),
+                name: formData.get('name'),
+                course: formData.get('course'),
+                year: formData.get('year'),
+                division: formData.get('division'),
+                face_data: faceData,
+                fingerprint_data: fingerprintData,
+                location: location
+            };
+
+            try {
+                const response = await fetch('/api/register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    alert('Registration successful!');
+                    window.location.href = '/dashboard';
+                } else {
+                    alert('Registration failed: ' + result.message);
+                }
+            } catch (error) {
+                console.error('Registration error:', error);
+                alert('Registration failed. Please try again.');
+            }
+        });
+    </script>
+</body>
+</html>

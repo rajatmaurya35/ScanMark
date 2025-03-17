@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mark Attendance</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            background: #f8f9fa;
+            padding: 1rem;
+        }
+        .form-container {
+            background: white;
+            padding: 2rem;
+            border-radius: 1rem;
+            box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.1);
+            max-width: 600px;
+            width: 100%;
+            margin: 1rem auto;
+        }
+        .verification-section {
+            margin: 1.5rem 0;
+            padding: 1.5rem;
+            border-radius: 0.5rem;
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+        }
+        .camera-feed {
+            width: 100%;
+            max-width: 400px;
+            height: 300px;
+            margin: 1rem auto;
+            border: 2px solid #dee2e6;
+            border-radius: 0.5rem;
+            background: #000;
+        }
+        .fingerprint-section {
+            text-align: center;
+            margin: 1.5rem 0;
+        }
+        .fingerprint-canvas {
+            width: 200px;
+            height: 200px;
+            border: 2px solid #dee2e6;
+            border-radius: 0.5rem;
+            margin: 1rem auto;
+            cursor: pointer;
+        }
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.9);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .verification-status {
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: 0.5rem;
+            display: none;
+        }
+        .status-success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .status-error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+    </style>
+</head>
+<body>
+    <div class="form-container">
+        <h2 class="mb-4">Mark Attendance</h2>
+        
+        <form id="attendanceForm" class="needs-validation" novalidate>
+            <input type="hidden" name="token" value="{{ token }}">
+            
+            <!-- Student Details -->
+            <div class="mb-4">
+                <h5>Student Details</h5>
+                <div class="mb-3">
+                    <label for="rollNumber" class="form-label">Roll Number</label>
+                    <input type="text" class="form-control" id="rollNumber" name="roll_number" pattern="^CS\d{7}$" required>
+                    <div class="invalid-feedback">Please enter a valid roll number (e.g., CS2025001)</div>
+                </div>
+                <div class="mb-3">
+                    <label for="name" class="form-label">Name</label>
+                    <input type="text" class="form-control" id="name" name="name" pattern="^[A-Za-z\s\'-]{2,100}$" required>
+                    <div class="invalid-feedback">Please enter your full name</div>
+                </div>
+                <div class="mb-3">
+                    <label for="course" class="form-label">Course</label>
+                    <input type="text" class="form-control" id="course" name="course" required>
+                    <div class="invalid-feedback">Please enter your course</div>
+                </div>
+                <div class="mb-3">
+                    <label for="year" class="form-label">Year</label>
+                    <select class="form-select" id="year" name="year" required>
+                        <option value="">Select Year</option>
+                        <option value="First Year">First Year</option>
+                        <option value="Second Year">Second Year</option>
+                        <option value="Third Year">Third Year</option>
+                        <option value="Fourth Year">Fourth Year</option>
+                        <option value="Fifth Year">Fifth Year</option>
+                    </select>
+                    <div class="invalid-feedback">Please select your year</div>
+                </div>
+                <div class="mb-3">
+                    <label for="division" class="form-label">Division</label>
+                    <input type="text" class="form-control" id="division" name="division" pattern="^[A-Z]$" required>
+                    <div class="invalid-feedback">Please enter your division (single uppercase letter)</div>
+                </div>
+            </div>
+
+            <!-- Face Verification -->
+            <div class="verification-section">
+                <h5>Face Verification</h5>
+                <div class="camera-feed">
+                    <video id="video" autoplay playsinline></video>
+                    <canvas id="canvas" style="display: none;"></canvas>
+                </div>
+                <div class="d-grid gap-2">
+                    <button type="button" class="btn btn-primary" id="captureBtn">Capture Face</button>
+                </div>
+                <div id="faceStatus" class="verification-status"></div>
+            </div>
+
+            <!-- Fingerprint Verification -->
+            <div class="verification-section">
+                <h5>Fingerprint Verification</h5>
+                <div class="fingerprint-section">
+                    <canvas id="fingerprintCanvas" class="fingerprint-canvas"></canvas>
+                    <p class="text-muted">Place your finger on the fingerprint scanner</p>
+                </div>
+                <div id="fingerprintStatus" class="verification-status"></div>
+            </div>
+
+            <!-- Location Verification -->
+            <div class="verification-section">
+                <h5>Location Verification</h5>
+                <p id="locationStatus">Waiting for location...</p>
+                <input type="hidden" id="latitude" name="latitude">
+                <input type="hidden" id="longitude" name="longitude">
+            </div>
+
+            <!-- Network Verification -->
+            <div class="verification-section">
+                <h5>Network Verification</h5>
+                <p id="networkStatus">Checking network security...</p>
+            </div>
+
+            <div class="d-grid gap-2 mt-4">
+                <button type="submit" class="btn btn-success" id="submitBtn" disabled>Mark Attendance</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="text-center">
+            <div class="spinner-border text-primary mb-3" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <h5 id="loadingMessage">Processing...</h5>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Global variables for verification status
+        let faceVerified = false;
+        let fingerprintVerified = false;
+        let locationVerified = false;
+        let networkVerified = false;
+
+        // Face Detection
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const captureBtn = document.getElementById('captureBtn');
+        const faceStatus = document.getElementById('faceStatus');
+
+        // Get camera access
+        async function initCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { 
+                        facingMode: 'user',
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    } 
+                });
+                video.srcObject = stream;
+                captureBtn.disabled = false;
+            } catch (err) {
+                console.error('Error accessing camera:', err);
+                faceStatus.textContent = 'Error accessing camera. Please ensure camera permissions are granted.';
+                faceStatus.className = 'verification-status status-error';
+                faceStatus.style.display = 'block';
+            }
+        }
+
+        // Capture and verify face
+        captureBtn.addEventListener('click', () => {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            
+            // Simulate face verification (replace with actual face recognition API)
+            setTimeout(() => {
+                faceVerified = true;
+                faceStatus.textContent = 'Face verified successfully!';
+                faceStatus.className = 'verification-status status-success';
+                faceStatus.style.display = 'block';
+                checkAllVerifications();
+            }, 1500);
+        });
+
+        // Fingerprint Verification
+        const fingerprintCanvas = document.getElementById('fingerprintCanvas');
+        const fingerprintStatus = document.getElementById('fingerprintStatus');
+        let isScanning = false;
+
+        fingerprintCanvas.addEventListener('click', () => {
+            if (!isScanning) {
+                isScanning = true;
+                const ctx = fingerprintCanvas.getContext('2d');
+                ctx.fillStyle = '#e9ecef';
+                ctx.fillRect(0, 0, fingerprintCanvas.width, fingerprintCanvas.height);
+                
+                // Simulate fingerprint scanning (replace with actual fingerprint API)
+                setTimeout(() => {
+                    fingerprintVerified = true;
+                    fingerprintStatus.textContent = 'Fingerprint verified successfully!';
+                    fingerprintStatus.className = 'verification-status status-success';
+                    fingerprintStatus.style.display = 'block';
+                    isScanning = false;
+                    checkAllVerifications();
+                }, 2000);
+            }
+        });
+
+        // Location Verification
+        const locationStatus = document.getElementById('locationStatus');
+        const latitudeInput = document.getElementById('latitude');
+        const longitudeInput = document.getElementById('longitude');
+
+        function getLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        latitudeInput.value = position.coords.latitude;
+                        longitudeInput.value = position.coords.longitude;
+                        locationStatus.textContent = 'Location verified successfully!';
+                        locationStatus.className = 'text-success';
+                        locationVerified = true;
+                        checkAllVerifications();
+                    },
+                    (error) => {
+                        locationStatus.textContent = 'Error getting location. Please enable location services.';
+                        locationStatus.className = 'text-danger';
+                    },
+                    {
+                        enableHighAccuracy: true,
+                        timeout: 5000,
+                        maximumAge: 0
+                    }
+                );
+            } else {
+                locationStatus.textContent = 'Geolocation is not supported by this browser.';
+                locationStatus.className = 'text-danger';
+            }
+        }
+
+        // Network Security Check
+        const networkStatus = document.getElementById('networkStatus');
+
+        function checkNetworkSecurity() {
+            // Check if connection is secure
+            if (window.location.protocol === 'https:') {
+                networkVerified = true;
+                networkStatus.textContent = 'Network connection is secure (HTTPS)';
+                networkStatus.className = 'text-success';
+                checkAllVerifications();
+            } else {
+                networkStatus.textContent = 'Warning: Connection is not secure!';
+                networkStatus.className = 'text-danger';
+            }
+        }
+
+        // Check all verifications
+        function checkAllVerifications() {
+            const submitBtn = document.getElementById('submitBtn');
+            if (faceVerified && fingerprintVerified && locationVerified && networkVerified) {
+                submitBtn.disabled = false;
+            }
+        }
+
+        // Form Submission
+        const form = document.getElementById('attendanceForm');
+        const loadingOverlay = document.getElementById('loadingOverlay');
+        const loadingMessage = document.getElementById('loadingMessage');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            // Form validation
+            if (!form.checkValidity()) {
+                e.stopPropagation();
+                form.classList.add('was-validated');
+                return;
+            }
+
+            // Show loading overlay
+            loadingOverlay.style.display = 'flex';
+            loadingMessage.textContent = 'Marking attendance...';
+
+            try {
+                const formData = new FormData(form);
+                const data = Object.fromEntries(formData.entries());
+                
+                const response = await fetch('/api/mark-attendance', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    loadingMessage.textContent = 'Attendance marked successfully!';
+                    setTimeout(() => {
+                        window.location.href = result.redirect_url;
+                    }, 1500);
+                } else {
+                    throw new Error(result.message);
+                }
+            } catch (error) {
+                loadingMessage.textContent = `Error: ${error.message}`;
+                setTimeout(() => {
+                    loadingOverlay.style.display = 'none';
+                }, 2000);
+            }
+        });
+
+        // Initialize everything
+        document.addEventListener('DOMContentLoaded', () => {
+            initCamera();
+            getLocation();
+            checkNetworkSecurity();
+        });
+    </script>
+</body>
+</html>

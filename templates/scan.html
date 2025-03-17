@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>QR Code Scanner</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <style>
+        body {
+            background: #f8f9fa;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .scanner-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+        #reader {
+            width: 100% !important;
+            max-width: 500px;
+            border-radius: 1rem;
+            overflow: hidden;
+            box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+        }
+        #reader video {
+            width: 100% !important;
+            border-radius: 1rem;
+        }
+        .scan-region-highlight {
+            border-radius: 1rem !important;
+        }
+        .permission-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: #fff;
+            z-index: 1000;
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+        .permission-icon {
+            font-size: 4rem;
+            color: #4e73df;
+            margin-bottom: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <!-- Permission Screen -->
+    <div id="permissionScreen" class="permission-screen">
+        <i class="fas fa-camera permission-icon"></i>
+        <h2 class="mb-4">Camera Access Required</h2>
+        <p class="mb-4">We need access to your camera to scan QR codes.</p>
+        <button id="grantPermissions" class="btn btn-primary btn-lg">
+            Grant Camera Access
+        </button>
+    </div>
+
+    <!-- Scanner UI -->
+    <div id="scannerUI" class="d-none">
+        <div class="container py-4">
+            <div class="text-center mb-4">
+                <h1 class="h3">Scan Attendance QR Code</h1>
+                <p class="text-muted">Position the QR code within the frame</p>
+            </div>
+            
+            <div class="scanner-container">
+                <div id="reader"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://kit.fontawesome.com/your-fontawesome-kit.js"></script>
+    <script>
+        document.getElementById('grantPermissions').addEventListener('click', async () => {
+            try {
+                // Request camera permission
+                await navigator.mediaDevices.getUserMedia({ video: true });
+                
+                // Hide permission screen and show scanner
+                document.getElementById('permissionScreen').classList.add('d-none');
+                document.getElementById('scannerUI').classList.remove('d-none');
+                
+                // Initialize QR scanner
+                initQRScanner();
+            } catch (error) {
+                alert('Please grant camera access to scan QR codes');
+                console.error('Permission error:', error);
+            }
+        });
+
+        function initQRScanner() {
+            const html5QrcodeScanner = new Html5QrcodeScanner(
+                "reader", 
+                { 
+                    fps: 10,
+                    qrbox: { width: 250, height: 250 },
+                    aspectRatio: 1.0,
+                    formatsToSupport: [ Html5QrcodeSupportedFormats.QR_CODE ]
+                }
+            );
+
+            function onScanSuccess(decodedText, decodedResult) {
+                // Stop scanning
+                html5QrcodeScanner.clear();
+                
+                // Send the scanned data to the server
+                fetch('/api/verify-attendance', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        qr_data: decodedText,
+                        timestamp: new Date().toISOString(),
+                        location: null  // Will be updated with actual location
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Request location after successful scan
+                        navigator.geolocation.getCurrentPosition(
+                            position => {
+                                // Update attendance with location
+                                fetch('/api/update-location', {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json'
+                                    },
+                                    body: JSON.stringify({
+                                        qr_data: decodedText,
+                                        latitude: position.coords.latitude,
+                                        longitude: position.coords.longitude
+                                    })
+                                });
+                            },
+                            error => console.error('Location error:', error),
+                            { enableHighAccuracy: true }
+                        );
+
+                        // Show success message
+                        alert('Attendance marked successfully!');
+                        // Redirect to dashboard or show success screen
+                        window.location.href = '/dashboard';
+                    } else {
+                        alert(data.message || 'Failed to mark attendance');
+                        // Restart scanner
+                        html5QrcodeScanner.render(onScanSuccess, onScanError);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Failed to process QR code');
+                    // Restart scanner
+                    html5QrcodeScanner.render(onScanSuccess, onScanError);
+                });
+            }
+
+            function onScanError(errorMessage) {
+                // Handle scan error
+                console.error('QR scan error:', errorMessage);
+            }
+
+            html5QrcodeScanner.render(onScanSuccess, onScanError);
+        }
+    </script>
+</body>
+</html>

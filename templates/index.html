@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Daily Attendance QR Code</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: #f8f9fa;
+            padding: 1rem;
+        }
+        .qr-container {
+            background: white;
+            padding: 2rem;
+            border-radius: 1rem;
+            box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.1);
+            text-align: center;
+            max-width: 600px;
+            width: 100%;
+            margin: 1rem;
+        }
+        .qr-code {
+            max-width: 300px;
+            width: 100%;
+            height: auto;
+            margin: 1rem auto;
+            padding: 1rem;
+            background: white;
+            border-radius: 0.5rem;
+            box-shadow: 0 0.25rem 0.5rem rgba(0, 0, 0, 0.05);
+        }
+        .qr-section {
+            margin: 1.5rem 0;
+            padding: 1.5rem;
+            border-radius: 0.5rem;
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+        }
+        .qr-title {
+            color: #4e73df;
+            margin-bottom: 1rem;
+        }
+        .instructions {
+            margin-top: 1.5rem;
+            color: #6c757d;
+            background: #fff;
+            padding: 1.5rem;
+            border-radius: 0.5rem;
+            border: 1px solid #e9ecef;
+        }
+        .time-display {
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
+            color: #4e73df;
+            padding: 0.5rem;
+            background: #f8f9fa;
+            border-radius: 0.5rem;
+        }
+        .refresh-btn {
+            margin: 1rem 0;
+            padding: 0.5rem 1.5rem;
+            border-radius: 2rem;
+        }
+        .direct-link {
+            margin-top: 1rem;
+            word-break: break-all;
+            font-family: monospace;
+            padding: 1rem;
+            background: #fff;
+            border-radius: 0.5rem;
+            border: 1px solid #dee2e6;
+        }
+    </style>
+</head>
+<body>
+    <div class="qr-container">
+        <h1 class="h3 mb-3">Daily Attendance QR Code</h1>
+        <div class="time-display" id="currentTime"></div>
+
+        <div class="qr-section">
+            <h5 class="qr-title">Scan to Mark Attendance</h5>
+            <img src="{{ url_for('static', filename=qr_data['path']) }}?t={{ timestamp }}" 
+                 alt="Attendance QR Code" class="qr-code">
+            <div class="direct-link">
+                <p class="mb-1"><strong>Direct Link:</strong></p>
+                <a href="{{ qr_data['url'] }}" target="_blank">{{ qr_data['url'] }}</a>
+            </div>
+        </div>
+
+        <button onclick="location.reload()" class="btn btn-outline-primary refresh-btn">
+            <i class="bi bi-arrow-clockwise"></i> Refresh QR Code
+        </button>
+        
+        <div class="instructions">
+            <h5>Instructions:</h5>
+            <ol class="text-start">
+                <li>Open your phone's camera app</li>
+                <li>Point it at the QR code above</li>
+                <li>Tap the link that appears</li>
+                <li>Fill in your details</li>
+                <li>Allow location access when prompted</li>
+                <li>Submit to mark your attendance</li>
+            </ol>
+            <p class="mb-0 text-muted"><small>Note: If QR code doesn't work, use the direct link provided below the code.</small></p>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function updateTime() {
+            const now = new Date();
+            const timeString = now.toLocaleTimeString('en-US', { 
+                hour: '2-digit', 
+                minute: '2-digit',
+                hour12: true 
+            });
+            const dateString = now.toLocaleDateString('en-US', { 
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+            document.getElementById('currentTime').textContent = `${dateString} ${timeString}`;
+        }
+
+        // Update time every second
+        updateTime();
+        setInterval(updateTime, 1000);
+
+        // Auto refresh page every 30 minutes to get new QR code
+        setTimeout(() => {
+            location.reload();
+        }, 30 * 60 * 1000);
+    </script>
+</body>
+</html>
