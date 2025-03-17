@@ -9,8 +9,8 @@ from flask_sqlalchemy import SQLAlchemy
 from io import BytesIO
 import qrcode
 from PIL import Image
-import face_recognition
 import cv2
+from deepface import DeepFace
 from config import config
 
 app = Flask(__name__)
@@ -100,24 +100,17 @@ def process_face_image(face_data):
     try:
         # Decode base64 image
         image_data = base64.b64decode(face_data.split(',')[1])
-        image = Image.open(BytesIO(image_data))
+        nparr = np.frombuffer(image_data, np.uint8)
+        img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
         
-        # Convert to RGB (face_recognition requires RGB)
-        image = image.convert('RGB')
-        
-        # Convert to numpy array
-        image_np = np.array(image)
-        
-        # Get face encodings
-        face_locations = face_recognition.face_locations(image_np)
-        if not face_locations:
+        # Get face embedding using DeepFace
+        embedding = DeepFace.represent(img, model_name="Facenet", enforce_detection=True)
+        if not embedding:
             return None, "No face detected"
-        
-        face_encodings = face_recognition.face_encodings(image_np, face_locations)
-        if not face_encodings:
-            return None, "Could not encode face"
             
-        return face_encodings[0].tobytes(), None
+        # Convert embedding to bytes for storage
+        embedding_bytes = np.array(embedding).tobytes()
+        return embedding_bytes, None
     except Exception as e:
         return None, str(e)
 
@@ -130,12 +123,12 @@ def verify_face(stored_encoding, new_face_data):
             return False, error
             
         # Convert stored encoding back to numpy array
-        stored_encoding = np.frombuffer(stored_encoding, dtype=np.float64)
-        new_encoding = np.frombuffer(new_encoding, dtype=np.float64)
+        stored_embedding = np.frombuffer(stored_encoding, dtype=np.float32)
+        new_embedding = np.frombuffer(new_encoding, dtype=np.float32)
         
-        # Compare faces
-        matches = face_recognition.compare_faces([stored_encoding], new_encoding, tolerance=0.6)
-        return matches[0], None
+        # Calculate cosine similarity
+        similarity = np.dot(stored_embedding, new_embedding) / (np.linalg.norm(stored_embedding) * np.linalg.norm(new_embedding))
+        return similarity > 0.7, None  # Threshold can be adjusted
     except Exception as e:
         return False, str(e)
 

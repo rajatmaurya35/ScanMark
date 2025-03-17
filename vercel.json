@@ -3,7 +3,11 @@
     "builds": [
         {
             "src": "api/index.py",
-            "use": "@vercel/python"
+            "use": "@vercel/python",
+            "config": {
+                "maxLambdaSize": "50mb",
+                "runtime": "python3.9"
+            }
         }
     ],
     "routes": [
@@ -14,6 +18,7 @@
     ],
     "env": {
         "FLASK_ENV": "production",
-        "PYTHONPATH": "."
+        "PYTHONPATH": ".",
+        "FACE_RECOGNITION_CPU_ONLY": "1"
     }
 }
