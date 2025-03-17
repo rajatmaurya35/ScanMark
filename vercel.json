@@ -19,6 +19,6 @@
     "env": {
         "FLASK_ENV": "production",
         "PYTHONPATH": ".",
-        "FACE_RECOGNITION_CPU_ONLY": "1"
+        "FLASK_APP": "api/index.py"
     }
 }
