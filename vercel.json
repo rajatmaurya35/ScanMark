@@ -3,8 +3,12 @@
     "name": "scanmark",
     "builds": [
         {
-            "src": "app.py",
+            "src": "vercel_app.py",
             "use": "@vercel/python"
+        },
+        {
+            "src": "static/**",
+            "use": "@vercel/static"
         }
     ],
     "routes": [
@@ -14,11 +18,7 @@
         },
         {
             "src": "/(.*)",
-            "dest": "app.py"
+            "dest": "/vercel_app.py"
         }
-    ],
-    "env": {
-        "FLASK_ENV": "production",
-        "PYTHONUNBUFFERED": "1"
-    }
+    ]
 }
