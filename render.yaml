@@ -2,8 +2,9 @@ services:
   - type: web
     name: scanmark
     env: python
+    region: oregon
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn app:app
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --threads 8 --timeout 0
     envVars:
       - key: FLASK_ENV
         value: production
@@ -15,5 +16,7 @@ services:
         value: postgresql://neondb_owner:npg_iaL8ckJzYN7X@ep-shy-smoke-a5mn2t1d-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require
       - key: SECRET_KEY
         generateValue: true
+      - key: PYTHON_VERSION
+        value: 3.9.12
     healthCheckPath: /health
     autoDeploy: true

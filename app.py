@@ -14,13 +14,23 @@ from deepface import DeepFace
 from config import config
 
 app = Flask(__name__)
+
+# Configure the Flask app
 env = os.getenv('FLASK_ENV', 'production')
 app.config.from_object(config[env])
 
-# Initialize database
+# Initialize SQLAlchemy after app configuration
 db = SQLAlchemy(app)
 
-# Enable CORS
+# Create tables within app context
+with app.app_context():
+    try:
+        db.create_all()
+        print("Database tables created successfully")
+    except Exception as e:
+        print(f"Error creating database tables: {str(e)}")
+
+# Enable CORS and set headers
 @app.after_request
 def after_request(response):
     response.headers.add('Access-Control-Allow-Origin', '*')
@@ -54,10 +64,6 @@ class QRToken(db.Model):
     token = db.Column(db.String(100), unique=True, nullable=False)
     expiry = db.Column(db.DateTime, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.now)
-
-# Create tables if they don't exist
-with app.app_context():
-    db.create_all()
 
 def process_face_image(face_data):
     """Process face image with error handling and retries"""
@@ -304,4 +310,6 @@ def internal_error(error):
     return jsonify({'error': 'Internal server error'}), 500
 
 if __name__ == '__main__':
-    app.run()
+    # Get port from environment variable for Render
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port)
