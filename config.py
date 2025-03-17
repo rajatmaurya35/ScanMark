@@ -3,7 +3,7 @@ from datetime import timedelta
 
 class Config:
     # Basic Flask Config
-    SECRET_KEY = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
+    SECRET_KEY = os.getenv('SECRET_KEY', 'ufsOrYXqhAM2Uo5TOdfWE6SHRWRrNCcliNEMv4MXApI')
     SESSION_COOKIE_NAME = 'attendance_session'
     PERMANENT_SESSION_LIFETIME = timedelta(hours=24)
     
@@ -28,6 +28,9 @@ class Config:
     # QR Code Settings
     QR_CODE_EXPIRY = timedelta(hours=24)
     MAX_QR_USES = 1000
+    MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB max file size
+    UPLOAD_FOLDER = 'static/uploads'
+    ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
     
     # Logging
     LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO')
@@ -35,12 +38,16 @@ class Config:
 class DevelopmentConfig(Config):
     DEBUG = True
     DEVELOPMENT = True
+    SQLALCHEMY_DATABASE_URI = 'sqlite:///attendance.db'
     
 class ProductionConfig(Config):
     DEBUG = False
     DEVELOPMENT = False
     SESSION_COOKIE_SECURE = True
     PERMANENT_SESSION_LIFETIME = timedelta(hours=12)
+    SQLALCHEMY_DATABASE_URI = os.getenv('DATABASE_URL')
+    if SQLALCHEMY_DATABASE_URI and SQLALCHEMY_DATABASE_URI.startswith('postgres://'):
+        SQLALCHEMY_DATABASE_URI = SQLALCHEMY_DATABASE_URI.replace('postgres://', 'postgresql://', 1)
     
 class TestingConfig(Config):
     TESTING = True
