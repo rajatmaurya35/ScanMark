@@ -9,7 +9,7 @@ import qrcode
 from config import config
 
 app = Flask(__name__)
-env = os.getenv('FLASK_ENV', 'development')
+env = os.getenv('FLASK_ENV', 'production')  # Default to production
 app.config.from_object(config[env])
 
 # Initialize database
@@ -81,7 +81,26 @@ def generate_qr_code():
 
 @app.route('/')
 def index():
+    """Home page"""
     return render_template('index.html')
+
+@app.route('/health')
+def health_check():
+    """Health check endpoint for Vercel deployment"""
+    try:
+        # Test database connection
+        db.session.execute('SELECT 1')
+        return jsonify({
+            'status': 'healthy',
+            'database': 'connected',
+            'timestamp': datetime.now().isoformat()
+        })
+    except Exception as e:
+        return jsonify({
+            'status': 'unhealthy',
+            'error': str(e),
+            'timestamp': datetime.now().isoformat()
+        }), 500
 
 @app.route('/generate-qr', methods=['GET'])
 def get_qr_code():
@@ -148,23 +167,15 @@ def mark_attendance():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@app.route('/health')
-def health_check():
-    """Health check endpoint for Vercel deployment"""
-    try:
-        # Test database connection
-        db.session.execute('SELECT 1')
-        return jsonify({
-            'status': 'healthy',
-            'database': 'connected',
-            'timestamp': datetime.now().isoformat()
-        })
-    except Exception as e:
-        return jsonify({
-            'status': 'unhealthy',
-            'error': str(e),
-            'timestamp': datetime.now().isoformat()
-        }), 500
+# Error handlers
+@app.errorhandler(404)
+def not_found_error(error):
+    return jsonify({'error': 'Not Found'}), 404
+
+@app.errorhandler(500)
+def internal_error(error):
+    db.session.rollback()
+    return jsonify({'error': 'Internal Server Error'}), 500
 
 if __name__ == '__main__':
     with app.app_context():

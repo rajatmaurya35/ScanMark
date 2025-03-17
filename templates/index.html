@@ -3,66 +3,52 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ScanMark - Smart Attendance</title>
+    <title>ScanMark - Smart Attendance System</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
 </head>
 <body class="bg-gray-100">
-    <div class="min-h-screen flex items-center justify-center">
-        <div class="bg-white p-8 rounded-lg shadow-lg max-w-md w-full">
-            <h1 class="text-2xl font-bold text-center mb-6">ScanMark</h1>
-            <div class="text-center mb-6">
-                <div id="qrContainer" class="mb-4">
-                    <img id="qrCode" src="" alt="QR Code" class="mx-auto">
-                </div>
-                <p id="timer" class="text-sm text-gray-600"></p>
+    <div class="min-h-screen flex flex-col items-center justify-center p-4">
+        <div class="bg-white p-8 rounded-lg shadow-lg max-w-md w-full text-center">
+            <h1 class="text-3xl font-bold text-gray-800 mb-6">ScanMark</h1>
+            <p class="text-gray-600 mb-8">Smart Attendance System</p>
+            
+            <div class="space-y-4">
+                <a href="/generate-qr" 
+                   class="block w-full bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600">
+                    Generate QR Code
+                </a>
+                
+                <a href="/mark-attendance.html" 
+                   class="block w-full bg-green-500 text-white py-2 px-4 rounded hover:bg-green-600">
+                    Mark Attendance
+                </a>
             </div>
-            <button onclick="generateQR()" class="w-full bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600">
-                Generate New QR Code
-            </button>
+
+            <div id="status" class="mt-8 text-sm text-gray-500">
+                Checking system status...
+            </div>
         </div>
     </div>
 
     <script>
-        async function generateQR() {
-            try {
-                const response = await fetch('/generate-qr');
-                const blob = await response.blob();
-                const url = URL.createObjectURL(blob);
-                document.getElementById('qrCode').src = url;
-                
-                // Reset timer
-                startTimer();
-            } catch (error) {
-                console.error('Error generating QR:', error);
-                alert('Error generating QR code');
-            }
-        }
-
-        function startTimer() {
-            const timerElement = document.getElementById('timer');
-            const expiryTime = new Date();
-            expiryTime.setHours(expiryTime.getHours() + 24);
-
-            function updateTimer() {
-                const now = new Date();
-                const diff = expiryTime - now;
-
-                if (diff <= 0) {
-                    timerElement.textContent = 'QR Code expired. Generate a new one.';
-                    return;
+        // Check system health
+        fetch('/health')
+            .then(response => response.json())
+            .then(data => {
+                const statusDiv = document.getElementById('status');
+                if (data.status === 'healthy') {
+                    statusDiv.textContent = '✅ System is running normally';
+                    statusDiv.className = 'mt-8 text-sm text-green-600';
+                } else {
+                    statusDiv.textContent = '❌ System is experiencing issues';
+                    statusDiv.className = 'mt-8 text-sm text-red-600';
                 }
-
-                const hours = Math.floor(diff / (1000 * 60 * 60));
-                const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-                timerElement.textContent = `Expires in: ${hours}h ${minutes}m`;
-            }
-
-            updateTimer();
-            setInterval(updateTimer, 60000); // Update every minute
-        }
-
-        // Generate initial QR code
-        generateQR();
+            })
+            .catch(error => {
+                const statusDiv = document.getElementById('status');
+                statusDiv.textContent = '❌ Unable to connect to server';
+                statusDiv.className = 'mt-8 text-sm text-red-600';
+            });
     </script>
 </body>
 </html>
