@@ -1,5 +1,6 @@
 {
     "version": 2,
+    "name": "scanmark",
     "builds": [
         {
             "src": "app.py",
@@ -7,6 +8,10 @@
         }
     ],
     "routes": [
+        {
+            "src": "/static/(.*)",
+            "dest": "/static/$1"
+        },
         {
             "src": "/(.*)",
             "dest": "app.py"
