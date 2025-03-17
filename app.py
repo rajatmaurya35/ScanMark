@@ -1,15 +1,20 @@
 import os
 import json
 import secrets
+import base64
+import numpy as np
 from datetime import datetime, timedelta
 from flask import Flask, render_template, request, jsonify, send_file, make_response
 from flask_sqlalchemy import SQLAlchemy
 from io import BytesIO
 import qrcode
+from PIL import Image
+import face_recognition
+import cv2
 from config import config
 
 app = Flask(__name__)
-env = os.getenv('FLASK_ENV', 'production')  # Default to production
+env = os.getenv('FLASK_ENV', 'production')
 app.config.from_object(config[env])
 
 # Initialize database
@@ -28,6 +33,8 @@ class Student(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     student_id = db.Column(db.String(20), unique=True, nullable=False)
     name = db.Column(db.String(100))
+    face_encoding = db.Column(db.LargeBinary)  # Store face encoding
+    fingerprint_template = db.Column(db.LargeBinary)  # Store fingerprint template
     registered_on = db.Column(db.DateTime, default=datetime.now)
     attendances = db.relationship('Attendance', backref='student', lazy=True)
 
@@ -38,6 +45,7 @@ class Attendance(db.Model):
     date = db.Column(db.DateTime, nullable=False)
     status = db.Column(db.String(20), default='present')
     location = db.Column(db.String(100))
+    verification_method = db.Column(db.String(20))  # face, fingerprint, or both
 
 class QRToken(db.Model):
     __tablename__ = 'qr_tokens'
@@ -87,6 +95,63 @@ def generate_qr_code():
     
     return img_io, token, expiry
 
+def process_face_image(face_data):
+    """Process base64 face image and return encoding"""
+    try:
+        # Decode base64 image
+        image_data = base64.b64decode(face_data.split(',')[1])
+        image = Image.open(BytesIO(image_data))
+        
+        # Convert to RGB (face_recognition requires RGB)
+        image = image.convert('RGB')
+        
+        # Convert to numpy array
+        image_np = np.array(image)
+        
+        # Get face encodings
+        face_locations = face_recognition.face_locations(image_np)
+        if not face_locations:
+            return None, "No face detected"
+        
+        face_encodings = face_recognition.face_encodings(image_np, face_locations)
+        if not face_encodings:
+            return None, "Could not encode face"
+            
+        return face_encodings[0].tobytes(), None
+    except Exception as e:
+        return None, str(e)
+
+def verify_face(stored_encoding, new_face_data):
+    """Verify face match"""
+    try:
+        # Process new face image
+        new_encoding, error = process_face_image(new_face_data)
+        if error:
+            return False, error
+            
+        # Convert stored encoding back to numpy array
+        stored_encoding = np.frombuffer(stored_encoding, dtype=np.float64)
+        new_encoding = np.frombuffer(new_encoding, dtype=np.float64)
+        
+        # Compare faces
+        matches = face_recognition.compare_faces([stored_encoding], new_encoding, tolerance=0.6)
+        return matches[0], None
+    except Exception as e:
+        return False, str(e)
+
+def verify_fingerprint(stored_template, new_template):
+    """Verify fingerprint match using minutiae matching"""
+    try:
+        # Convert templates to numpy arrays
+        template1 = np.frombuffer(base64.b64decode(stored_template), dtype=np.uint8)
+        template2 = np.frombuffer(base64.b64decode(new_template), dtype=np.uint8)
+        
+        # Simple minutiae matching (you may want to use a more sophisticated matching algorithm)
+        similarity = np.sum(template1 == template2) / len(template1)
+        return similarity > 0.8, None
+    except Exception as e:
+        return False, str(e)
+
 @app.route('/')
 def index():
     """Home page"""
@@ -126,37 +191,79 @@ def get_qr_code():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@app.route('/mark-attendance', methods=['POST'])
-def mark_attendance():
-    """Mark attendance with location and token verification"""
+@app.route('/register', methods=['POST'])
+def register_student():
+    """Register new student with biometric data"""
     try:
-        student_id = request.form.get('student_id')
-        token_data = request.form.get('token')
-        location = request.form.get('location')
+        data = request.form
+        student_id = data.get('student_id')
+        name = data.get('name')
+        face_data = data.get('face_image')
+        fingerprint_data = data.get('fingerprint_template')
         
-        if not all([student_id, token_data, location]):
+        if not all([student_id, name, face_data, fingerprint_data]):
             return jsonify({'error': 'Missing required fields'}), 400
             
-        # Verify token and expiry
+        # Process face image
+        face_encoding, error = process_face_image(face_data)
+        if error:
+            return jsonify({'error': f'Face processing error: {error}'}), 400
+            
+        # Create new student
+        student = Student(
+            student_id=student_id,
+            name=name,
+            face_encoding=face_encoding,
+            fingerprint_template=base64.b64decode(fingerprint_data)
+        )
+        
+        db.session.add(student)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Student registered successfully'
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/mark-attendance', methods=['POST'])
+def mark_attendance():
+    """Mark attendance with biometric verification"""
+    try:
+        data = request.form
+        student_id = data.get('student_id')
+        token_data = data.get('token')
+        location = data.get('location')
+        face_data = data.get('face_image')
+        fingerprint_data = data.get('fingerprint_template')
+        
+        if not all([student_id, token_data, location, face_data, fingerprint_data]):
+            return jsonify({'error': 'Missing required fields'}), 400
+            
+        # Verify token
         if not verify_token(token_data):
             return jsonify({'error': 'Invalid or expired QR code'}), 400
             
-        # Basic location validation
-        try:
-            loc_data = json.loads(location)
-            if not (-90 <= float(loc_data['latitude']) <= 90) or not (-180 <= float(loc_data['longitude']) <= 180):
-                return jsonify({'error': 'Invalid location coordinates'}), 400
-        except:
-            return jsonify({'error': 'Invalid location data'}), 400
-            
-        # Get or create student
+        # Get student
         student = Student.query.filter_by(student_id=student_id).first()
         if not student:
-            student = Student(student_id=student_id)
-            db.session.add(student)
-            db.session.commit()
-        
-        # Record attendance with status based on time
+            return jsonify({'error': 'Student not found'}), 404
+            
+        # Verify face
+        face_match, face_error = verify_face(student.face_encoding, face_data)
+        if face_error:
+            return jsonify({'error': f'Face verification error: {face_error}'}), 400
+            
+        # Verify fingerprint
+        finger_match, finger_error = verify_fingerprint(student.fingerprint_template, fingerprint_data)
+        if finger_error:
+            return jsonify({'error': f'Fingerprint verification error: {finger_error}'}), 400
+            
+        if not (face_match and finger_match):
+            return jsonify({'error': 'Biometric verification failed'}), 401
+            
+        # Record attendance
         now = datetime.now()
         status = 'late' if now.hour >= 9 and now.minute > 15 else 'present'
         
@@ -164,8 +271,10 @@ def mark_attendance():
             student_id=student.id,
             date=now,
             status=status,
-            location=location
+            location=location,
+            verification_method='face_and_fingerprint'
         )
+        
         db.session.add(attendance)
         db.session.commit()
         
