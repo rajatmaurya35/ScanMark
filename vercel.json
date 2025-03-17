@@ -2,14 +2,24 @@
     "version": 2,
     "builds": [
         {
-            "src": "api/index.py",
-            "use": "@vercel/python"
+            "src": "app.py",
+            "use": "@vercel/python",
+            "config": {
+                "maxLambdaSize": "15mb",
+                "runtime": "python3.9"
+            }
         }
     ],
     "routes": [
         {
             "src": "/(.*)",
-            "dest": "api/index.py"
+            "dest": "app.py"
         }
-    ]
+    ],
+    "env": {
+        "FLASK_ENV": "production",
+        "PYTHONPATH": ".",
+        "FLASK_APP": "app.py",
+        "DATABASE_URL": "postgresql://neondb_owner:npg_iaL8ckJzYN7X@ep-shy-smoke-a5mn2t1d-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require"
+    }
 }
