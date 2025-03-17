@@ -31,10 +31,31 @@ class Attendance(db.Model):
     status = db.Column(db.String(20), default='present')
     location = db.Column(db.String(100))
 
+class QRToken(db.Model):
+    __tablename__ = 'qr_tokens'
+    id = db.Column(db.Integer, primary_key=True)
+    token = db.Column(db.String(100), unique=True, nullable=False)
+    expiry = db.Column(db.DateTime, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.now)
+
+def verify_token(token_data):
+    """Verify QR token and expiry"""
+    try:
+        data = json.loads(token_data)
+        expiry = datetime.fromisoformat(data['expiry'])
+        return datetime.now() <= expiry
+    except:
+        return False
+
 def generate_qr_code():
     """Generate QR code with token and expiry"""
     token = secrets.token_urlsafe(16)
     expiry = datetime.now() + timedelta(hours=24)
+    
+    # Store token in database
+    qr_token = QRToken(token=token, expiry=expiry)
+    db.session.add(qr_token)
+    db.session.commit()
     
     qr = qrcode.QRCode(
         version=1,
@@ -78,14 +99,18 @@ def get_qr_code():
 
 @app.route('/mark-attendance', methods=['POST'])
 def mark_attendance():
-    """Mark attendance with location verification"""
+    """Mark attendance with location and token verification"""
     try:
         student_id = request.form.get('student_id')
-        token = request.form.get('token')
+        token_data = request.form.get('token')
         location = request.form.get('location')
         
-        if not all([student_id, token, location]):
+        if not all([student_id, token_data, location]):
             return jsonify({'error': 'Missing required fields'}), 400
+            
+        # Verify token and expiry
+        if not verify_token(token_data):
+            return jsonify({'error': 'Invalid or expired QR code'}), 400
             
         # Basic location validation
         try:
@@ -102,11 +127,14 @@ def mark_attendance():
             db.session.add(student)
             db.session.commit()
         
-        # Record attendance
+        # Record attendance with status based on time
+        now = datetime.now()
+        status = 'late' if now.hour >= 9 and now.minute > 15 else 'present'
+        
         attendance = Attendance(
             student_id=student.id,
-            date=datetime.now(),
-            status='present',
+            date=now,
+            status=status,
             location=location
         )
         db.session.add(attendance)
@@ -114,7 +142,8 @@ def mark_attendance():
         
         return jsonify({
             'success': True,
-            'message': 'Attendance marked successfully'
+            'message': 'Attendance marked successfully',
+            'status': status
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
