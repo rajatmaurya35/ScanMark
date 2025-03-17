@@ -4,11 +4,11 @@ services:
     env: python
     region: oregon
     buildCommand: |
-      sudo apt-get update
-      sudo apt-get install -y libgl1-mesa-glx libglib2.0-0 cmake python3-dev build-essential pkg-config
-      pip install --upgrade pip
-      pip install wheel setuptools
-      pip install -r requirements.txt
+      apt-get update
+      apt-get install -y libgl1-mesa-glx libglib2.0-0 cmake python3-dev build-essential pkg-config
+      python -m pip install --upgrade pip
+      python -m pip install wheel setuptools
+      python -m pip install -r requirements.txt
     startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --threads 8 --timeout 0
     envVars:
       - key: FLASK_ENV
