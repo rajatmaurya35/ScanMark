@@ -28,13 +28,14 @@ def after_request(response):
     response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE')
     return response
 
+# Database Models
 class Student(db.Model):
     __tablename__ = 'students'
     id = db.Column(db.Integer, primary_key=True)
     student_id = db.Column(db.String(20), unique=True, nullable=False)
     name = db.Column(db.String(100))
-    face_encoding = db.Column(db.LargeBinary)  # Store face encoding
-    fingerprint_template = db.Column(db.LargeBinary)  # Store fingerprint template
+    face_encoding = db.Column(db.LargeBinary)
+    fingerprint_template = db.Column(db.LargeBinary)
     registered_on = db.Column(db.DateTime, default=datetime.now)
     attendances = db.relationship('Attendance', backref='student', lazy=True)
 
@@ -45,7 +46,7 @@ class Attendance(db.Model):
     date = db.Column(db.DateTime, nullable=False)
     status = db.Column(db.String(20), default='present')
     location = db.Column(db.String(100))
-    verification_method = db.Column(db.String(20))  # face, fingerprint, or both
+    verification_method = db.Column(db.String(20))
 
 class QRToken(db.Model):
     __tablename__ = 'qr_tokens'
@@ -54,96 +55,68 @@ class QRToken(db.Model):
     expiry = db.Column(db.DateTime, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.now)
 
-def verify_token(token_data):
-    """Verify QR token and expiry"""
-    try:
-        data = json.loads(token_data)
-        expiry = datetime.fromisoformat(data['expiry'])
-        return datetime.now() <= expiry
-    except:
-        return False
-
-def generate_qr_code():
-    """Generate QR code with token and expiry"""
-    token = secrets.token_urlsafe(16)
-    expiry = datetime.now() + timedelta(hours=24)
-    
-    # Store token in database
-    qr_token = QRToken(token=token, expiry=expiry)
-    db.session.add(qr_token)
-    db.session.commit()
-    
-    qr = qrcode.QRCode(
-        version=1,
-        error_correction=qrcode.constants.ERROR_CORRECT_L,
-        box_size=10,
-        border=4,
-    )
-    
-    qr_data = {
-        'token': token,
-        'expiry': expiry.isoformat()
-    }
-    
-    qr.add_data(json.dumps(qr_data))
-    qr.make(fit=True)
-    
-    img = qr.make_image(fill_color="black", back_color="white")
-    img_io = BytesIO()
-    img.save(img_io, 'PNG')
-    img_io.seek(0)
-    
-    return img_io, token, expiry
+# Create tables if they don't exist
+with app.app_context():
+    db.create_all()
 
 def process_face_image(face_data):
-    """Process base64 face image and return encoding"""
+    """Process face image with error handling and retries"""
     try:
+        # Remove data URL prefix if present
+        if ',' in face_data:
+            face_data = face_data.split(',')[1]
+        
         # Decode base64 image
-        image_data = base64.b64decode(face_data.split(',')[1])
+        image_data = base64.b64decode(face_data)
         nparr = np.frombuffer(image_data, np.uint8)
         img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
         
-        # Get face embedding using DeepFace
+        # Convert BGR to RGB (DeepFace expects RGB)
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        
+        # Get face embedding
         embedding = DeepFace.represent(img, model_name="Facenet", enforce_detection=True)
         if not embedding:
             return None, "No face detected"
-            
-        # Convert embedding to bytes for storage
+        
+        # Convert embedding to bytes
         embedding_bytes = np.array(embedding).tobytes()
         return embedding_bytes, None
     except Exception as e:
-        return None, str(e)
+        return None, f"Face processing error: {str(e)}"
 
-def verify_face(stored_encoding, new_face_data):
-    """Verify face match"""
+def verify_face(stored_encoding, new_face_data, threshold=0.7):
+    """Verify face match with improved error handling"""
     try:
         # Process new face image
         new_encoding, error = process_face_image(new_face_data)
         if error:
             return False, error
-            
+        
         # Convert stored encoding back to numpy array
         stored_embedding = np.frombuffer(stored_encoding, dtype=np.float32)
         new_embedding = np.frombuffer(new_encoding, dtype=np.float32)
         
         # Calculate cosine similarity
-        similarity = np.dot(stored_embedding, new_embedding) / (np.linalg.norm(stored_embedding) * np.linalg.norm(new_embedding))
-        return similarity > 0.7, None  # Threshold can be adjusted
+        similarity = np.dot(stored_embedding, new_embedding) / (
+            np.linalg.norm(stored_embedding) * np.linalg.norm(new_embedding)
+        )
+        return similarity > threshold, None
     except Exception as e:
-        return False, str(e)
+        return False, f"Face verification error: {str(e)}"
 
-def verify_fingerprint(stored_template, new_template):
-    """Verify fingerprint match using minutiae matching"""
+def verify_fingerprint(stored_template, new_template, threshold=0.8):
+    """Verify fingerprint match with improved error handling"""
     try:
         # Convert templates to numpy arrays
         template1 = np.frombuffer(base64.b64decode(stored_template), dtype=np.uint8)
         template2 = np.frombuffer(base64.b64decode(new_template), dtype=np.uint8)
         
-        # Simple minutiae matching (you may want to use a more sophisticated matching algorithm)
+        # Calculate similarity
         similarity = np.sum(template1 == template2) / len(template1)
-        return similarity > 0.8, None
+        return similarity > threshold, None
     except Exception as e:
-        return False, str(e)
+        return False, f"Fingerprint verification error: {str(e)}"
 
 @app.route('/')
 def index():
@@ -152,7 +125,7 @@ def index():
 
 @app.route('/health')
 def health_check():
-    """Health check endpoint for Vercel deployment"""
+    """Health check endpoint"""
     try:
         # Test database connection
         db.session.execute('SELECT 1')
@@ -170,23 +143,45 @@ def health_check():
 
 @app.route('/generate-qr', methods=['GET'])
 def get_qr_code():
-    """Generate new QR code for attendance"""
+    """Generate QR code with improved error handling"""
     try:
-        img_io, token, expiry = generate_qr_code()
+        # Generate token with 5-minute expiry
+        token = secrets.token_urlsafe(32)
+        expiry = datetime.now() + timedelta(minutes=5)
+        
+        # Save token
+        qr_token = QRToken(token=token, expiry=expiry)
+        db.session.add(qr_token)
+        db.session.commit()
+        
+        # Generate QR code
+        qr = qrcode.QRCode(version=1, box_size=10, border=5)
+        qr.add_data(json.dumps({
+            'token': token,
+            'expiry': expiry.isoformat()
+        }))
+        qr.make(fit=True)
+        
+        # Create QR image
+        img = qr.make_image(fill_color="black", back_color="white")
+        img_io = BytesIO()
+        img.save(img_io, 'PNG')
+        img_io.seek(0)
+        
         response = make_response(send_file(
             img_io,
             mimetype='image/png',
             as_attachment=True,
             download_name='attendance_qr.png'
         ))
-        response.headers['Access-Control-Allow-Origin'] = '*'
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
         return response
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': f"QR generation error: {str(e)}"}), 500
 
 @app.route('/register', methods=['POST'])
 def register_student():
-    """Register new student with biometric data"""
+    """Register student with improved validation"""
     try:
         data = request.form
         student_id = data.get('student_id')
@@ -194,15 +189,21 @@ def register_student():
         face_data = data.get('face_image')
         fingerprint_data = data.get('fingerprint_template')
         
+        # Validate required fields
         if not all([student_id, name, face_data, fingerprint_data]):
             return jsonify({'error': 'Missing required fields'}), 400
-            
+        
+        # Check if student already exists
+        existing_student = Student.query.filter_by(student_id=student_id).first()
+        if existing_student:
+            return jsonify({'error': 'Student ID already registered'}), 409
+        
         # Process face image
         face_encoding, error = process_face_image(face_data)
         if error:
-            return jsonify({'error': f'Face processing error: {error}'}), 400
-            
-        # Create new student
+            return jsonify({'error': error}), 400
+        
+        # Create student
         student = Student(
             student_id=student_id,
             name=name,
@@ -215,51 +216,62 @@ def register_student():
         
         return jsonify({
             'success': True,
-            'message': 'Student registered successfully'
+            'message': 'Registration successful',
+            'student_id': student_id
         })
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        db.session.rollback()
+        return jsonify({'error': f"Registration error: {str(e)}"}), 500
 
 @app.route('/mark-attendance', methods=['POST'])
 def mark_attendance():
-    """Mark attendance with biometric verification"""
+    """Mark attendance with comprehensive validation"""
     try:
         data = request.form
         student_id = data.get('student_id')
-        token_data = data.get('token')
+        token = data.get('token')
         location = data.get('location')
         face_data = data.get('face_image')
         fingerprint_data = data.get('fingerprint_template')
         
-        if not all([student_id, token_data, location, face_data, fingerprint_data]):
+        # Validate required fields
+        if not all([student_id, token, location, face_data, fingerprint_data]):
             return jsonify({'error': 'Missing required fields'}), 400
-            
-        # Verify token
-        if not verify_token(token_data):
-            return jsonify({'error': 'Invalid or expired QR code'}), 400
-            
+        
+        # Verify QR token
+        qr_token = QRToken.query.filter_by(token=token).first()
+        if not qr_token:
+            return jsonify({'error': 'Invalid QR token'}), 401
+        if qr_token.expiry < datetime.now():
+            return jsonify({'error': 'QR token expired'}), 401
+        
         # Get student
         student = Student.query.filter_by(student_id=student_id).first()
         if not student:
             return jsonify({'error': 'Student not found'}), 404
-            
+        
         # Verify face
         face_match, face_error = verify_face(student.face_encoding, face_data)
         if face_error:
-            return jsonify({'error': f'Face verification error: {face_error}'}), 400
-            
+            return jsonify({'error': face_error}), 400
+        if not face_match:
+            return jsonify({'error': 'Face verification failed'}), 401
+        
         # Verify fingerprint
-        finger_match, finger_error = verify_fingerprint(student.fingerprint_template, fingerprint_data)
+        finger_match, finger_error = verify_fingerprint(
+            student.fingerprint_template,
+            fingerprint_data
+        )
         if finger_error:
-            return jsonify({'error': f'Fingerprint verification error: {finger_error}'}), 400
-            
-        if not (face_match and finger_match):
-            return jsonify({'error': 'Biometric verification failed'}), 401
-            
-        # Record attendance
+            return jsonify({'error': finger_error}), 400
+        if not finger_match:
+            return jsonify({'error': 'Fingerprint verification failed'}), 401
+        
+        # Determine attendance status
         now = datetime.now()
         status = 'late' if now.hour >= 9 and now.minute > 15 else 'present'
         
+        # Record attendance
         attendance = Attendance(
             student_id=student.id,
             date=now,
@@ -274,22 +286,22 @@ def mark_attendance():
         return jsonify({
             'success': True,
             'message': 'Attendance marked successfully',
-            'status': status
+            'status': status,
+            'timestamp': now.isoformat()
         })
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        db.session.rollback()
+        return jsonify({'error': f"Attendance marking error: {str(e)}"}), 500
 
 # Error handlers
 @app.errorhandler(404)
 def not_found_error(error):
-    return jsonify({'error': 'Not Found'}), 404
+    return jsonify({'error': 'Not found'}), 404
 
 @app.errorhandler(500)
 def internal_error(error):
     db.session.rollback()
-    return jsonify({'error': 'Internal Server Error'}), 500
+    return jsonify({'error': 'Internal server error'}), 500
 
 if __name__ == '__main__':
-    with app.app_context():
-        db.create_all()
     app.run()

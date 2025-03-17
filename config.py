@@ -9,9 +9,7 @@ class Config:
     
     # Database Config
     SQLALCHEMY_TRACK_MODIFICATIONS = False
-    SQLALCHEMY_DATABASE_URI = os.getenv('DATABASE_URL', 'sqlite:///attendance.db')
-    if SQLALCHEMY_DATABASE_URI.startswith("postgres://"):
-        SQLALCHEMY_DATABASE_URI = SQLALCHEMY_DATABASE_URI.replace("postgres://", "postgresql://", 1)
+    SQLALCHEMY_DATABASE_URI = os.getenv('DATABASE_URL', 'postgresql://neondb_owner:npg_iaL8ckJzYN7X@ep-shy-smoke-a5mn2t1d-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require')
     
     # Security Config
     SESSION_COOKIE_SECURE = True
@@ -35,18 +33,12 @@ class Config:
     # Logging
     LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO')
     
-class DevelopmentConfig(Config):
-    DEBUG = True
-    DEVELOPMENT = True
-    SQLALCHEMY_DATABASE_URI = 'sqlite:///attendance.db'
-    
 class ProductionConfig(Config):
     DEBUG = False
-    DEVELOPMENT = False
+    TESTING = False
     SESSION_COOKIE_SECURE = True
     PERMANENT_SESSION_LIFETIME = timedelta(hours=12)
     # Use Neon's connection pooler for serverless environment
-    SQLALCHEMY_DATABASE_URI = os.getenv('DATABASE_URL', 'postgresql://neondb_owner:npg_iaL8ckJzYN7X@ep-shy-smoke-a5mn2t1d-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require')
     SQLALCHEMY_ENGINE_OPTIONS = {
         'pool_pre_ping': True,  # Enable connection health checks
         'pool_size': 1,  # Minimal pool for serverless
@@ -64,13 +56,18 @@ class ProductionConfig(Config):
         if 'sslmode=' not in SQLALCHEMY_DATABASE_URI:
             SQLALCHEMY_DATABASE_URI += '?sslmode=require'
     
+class DevelopmentConfig(Config):
+    DEBUG = True
+    DEVELOPMENT = True
+    SQLALCHEMY_DATABASE_URI = 'sqlite:///attendance.db'
+    
 class TestingConfig(Config):
     TESTING = True
-    SQLALCHEMY_DATABASE_URI = 'sqlite:///:memory:'
+    SQLALCHEMY_DATABASE_URI = 'sqlite:///test.db'
 
 config = {
     'development': DevelopmentConfig,
-    'production': ProductionConfig,
     'testing': TestingConfig,
-    'default': DevelopmentConfig
+    'production': ProductionConfig,
+    'default': ProductionConfig
 }
