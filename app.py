@@ -1,7 +1,6 @@
 import os
 import json
 import secrets
-import base64
 from datetime import datetime, timedelta
 from flask import Flask, render_template, request, jsonify, send_file, make_response
 from supabase import create_client, Client
@@ -28,6 +27,15 @@ try:
         
     supabase: Client = create_client(supabase_url, supabase_key)
     logger.info("Supabase client initialized successfully")
+
+    # Verify database connection
+    try:
+        # Test query to verify connection
+        supabase.table('students').select('*').limit(1).execute()
+        logger.info("Successfully connected to Supabase database")
+    except Exception as e:
+        logger.error(f"Failed to connect to Supabase database: {str(e)}")
+        raise
 except Exception as e:
     logger.error(f"Failed to initialize Supabase client: {str(e)}")
     raise
@@ -71,7 +79,7 @@ def scan():
 
 @app.route('/generate-qr', methods=['GET'])
 def get_qr_code():
-    """Generate QR code with improved error handling"""
+    """Generate QR code"""
     try:
         # Generate token with 5-minute expiry
         token = secrets.token_urlsafe(32)
@@ -115,7 +123,7 @@ def get_qr_code():
 
 @app.route('/register', methods=['POST'])
 def register_student():
-    """Register student with improved validation"""
+    """Register student"""
     try:
         data = request.get_json() if request.is_json else request.form
         student_id = data.get('student_id')
@@ -154,47 +162,36 @@ def register_student():
 
 @app.route('/mark-attendance', methods=['POST'])
 def mark_attendance():
-    """Mark attendance with comprehensive validation"""
+    """Mark attendance"""
     try:
         data = request.get_json() if request.is_json else request.form
-        student_id = data.get('student_id')
+        token = data.get('token')
         location = data.get('location', 'Unknown')
         
-        # Validate required fields
-        if not student_id:
-            return jsonify({'error': 'Missing required fields'}), 400
-        
-        # Get student
-        student_response = supabase.table('students')\
+        # Validate token
+        if not token:
+            return jsonify({'error': 'Missing token'}), 400
+            
+        # Verify token
+        token_response = supabase.table('qr_tokens')\
             .select('*')\
-            .eq('student_id', student_id)\
+            .eq('token', token)\
             .execute()
             
-        if hasattr(student_response, 'error') and student_response.error:
-            raise Exception(f"Failed to fetch student: {student_response.error}")
+        if hasattr(token_response, 'error') and token_response.error:
+            raise Exception(f"Failed to verify token: {token_response.error}")
             
-        if not student_response.data:
-            return jsonify({'error': 'Student not found'}), 404
+        if not token_response.data:
+            return jsonify({'error': 'Invalid token'}), 400
             
-        student = student_response.data[0]
+        token_data = token_response.data[0]
+        expiry = datetime.fromisoformat(token_data['expiry'].replace('Z', '+00:00'))
         
-        # Check for duplicate attendance
-        today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-        existing_response = supabase.table('attendances')\
-            .select('*')\
-            .eq('student_id', student['id'])\
-            .gte('date', today.isoformat())\
-            .execute()
-            
-        if hasattr(existing_response, 'error') and existing_response.error:
-            raise Exception(f"Failed to check existing attendance: {existing_response.error}")
-            
-        if existing_response.data:
-            return jsonify({'error': 'Attendance already marked for today'}), 400
+        if expiry < datetime.now():
+            return jsonify({'error': 'Token has expired'}), 400
         
         # Mark attendance
         attendance_response = supabase.table('attendances').insert({
-            'student_id': student['id'],
             'date': datetime.now().isoformat(),
             'status': 'present',
             'location': location
@@ -202,10 +199,12 @@ def mark_attendance():
         
         if hasattr(attendance_response, 'error') and attendance_response.error:
             raise Exception(f"Failed to mark attendance: {attendance_response.error}")
+            
+        # Delete used token
+        supabase.table('qr_tokens').delete().eq('token', token).execute()
         
         return jsonify({
             'message': 'Attendance marked successfully',
-            'student_name': student['name'],
             'timestamp': datetime.now().isoformat()
         }), 200
     except Exception as e:
