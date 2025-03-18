@@ -18,8 +18,14 @@
     ],
     "env": {
         "FLASK_ENV": "production",
-        "PYTHONPATH": ".",
         "FLASK_APP": "app.py",
-        "DATABASE_URL": "postgresql://neondb_owner:npg_iaL8ckJzYN7X@ep-shy-smoke-a5mn2t1d-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require"
+        "PYTHONPATH": ".",
+        "SUPABASE_URL": "https://aaluawvcohqfhevkdnuv.supabase.co",
+        "SUPABASE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFhbHVhd3Zjb2hxZmhldmtkbnV2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDIyNzY3MzcsImV4cCI6MjA1Nzg1MjczN30.kKL_B4sw1nwY6lbzgyPHQYoC_uqDsPkT51ZOnhr6MNA"
+    },
+    "build": {
+        "env": {
+            "PIP_TARGET": ".pip"
+        }
     }
 }
