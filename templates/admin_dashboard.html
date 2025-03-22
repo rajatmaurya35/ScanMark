@@ -58,6 +58,15 @@
             color: #dc3545;
             border: 1px solid #ffccd1;
         }
+        .loading {
+            display: none;
+            text-align: center;
+            margin: 20px 0;
+        }
+        .loading-spinner {
+            width: 3rem;
+            height: 3rem;
+        }
     </style>
 </head>
 <body>
@@ -91,6 +100,12 @@
                             </div>
                             <button type="submit" class="btn btn-primary w-100">Generate QR Code</button>
                         </form>
+                        <div id="loading" class="loading">
+                            <div class="spinner-border text-primary loading-spinner" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <p class="mt-2 text-muted">Generating QR Code...</p>
+                        </div>
                         <div id="qrCode" class="text-center"></div>
                         <div id="errorMessage" class="error-message"></div>
                     </div>
@@ -126,21 +141,26 @@
         const session = document.getElementById('session').value;
         const qrDiv = document.getElementById('qrCode');
         const errorDiv = document.getElementById('errorMessage');
+        const loadingDiv = document.getElementById('loading');
         
-        // Clear previous content
+        // Clear previous content and show loading
         qrDiv.innerHTML = '';
         errorDiv.style.display = 'none';
+        loadingDiv.style.display = 'block';
         
         try {
-            const formData = new FormData();
-            formData.append('session', session);
-            
             const response = await fetch('/generate_qr', {
                 method: 'POST',
-                body: formData
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `session=${encodeURIComponent(session)}`
             });
             
             const data = await response.json();
+            
+            // Hide loading
+            loadingDiv.style.display = 'none';
             
             if (response.ok && data.qr_code) {
                 qrDiv.innerHTML = `
@@ -152,9 +172,11 @@
                 throw new Error(data.error || 'Failed to generate QR code');
             }
         } catch (error) {
+            loadingDiv.style.display = 'none';
             errorDiv.textContent = error.message;
             errorDiv.style.display = 'block';
             qrDiv.innerHTML = '';
+            console.error('Error:', error);
         }
     });
 
