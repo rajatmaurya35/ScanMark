@@ -1,5 +1,5 @@
 import os
-import qrcode
+import segno
 import logging
 from io import BytesIO
 import base64
@@ -92,32 +92,28 @@ def generate_qr():
         # Generate QR code
         try:
             logger.info("Generating QR code image")
-            qr = qrcode.QRCode(
-                version=1,
-                error_correction=qrcode.constants.ERROR_CORRECT_L,
-                box_size=10,
-                border=4,
-            )
             
             # Use the full URL for QR code
             base_url = request.host_url.rstrip('/')
+            if base_url.startswith('http://'):
+                base_url = base_url.replace('http://', 'https://')
             attendance_url = f"{base_url}/mark_attendance/{token}"
-            qr.add_data(attendance_url)
-            qr.make(fit=True)
 
-            # Create QR code image
-            img_buffer = BytesIO()
-            img = qr.make_image(fill_color="black", back_color="white")
-            img.save(img_buffer, format='PNG')
-            img_str = base64.b64encode(img_buffer.getvalue()).decode()
+            # Generate QR code using segno
+            qr = segno.make(attendance_url)
+            buffer = BytesIO()
+            qr.save(buffer, kind='png', scale=10)
+            img_str = base64.b64encode(buffer.getvalue()).decode()
 
             logger.info("QR code generated successfully")
-            return jsonify({
+            response_data = {
                 'success': True,
                 'qr_code': img_str,
                 'url': attendance_url,
                 'expires_at': expires_at.isoformat()
-            })
+            }
+            logger.info("Sending response with QR code")
+            return jsonify(response_data)
 
         except Exception as e:
             logger.error(f"QR generation error: {str(e)}")
