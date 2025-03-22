@@ -172,9 +172,6 @@ def mark_attendance(token):
 
 @app.route('/register_admin', methods=['GET', 'POST'])
 def register_admin():
-    if 'admin_id' not in session:
-        return redirect(url_for('admin_login'))
-        
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
@@ -201,8 +198,8 @@ def register_admin():
             'password_hash': password_hash
         }).execute()
         
-        flash('New admin registered successfully', 'success')
-        return redirect(url_for('admin_dashboard'))
+        flash('Registration successful! Please login.', 'success')
+        return redirect(url_for('admin_login'))
         
     return render_template('register_admin.html')
 

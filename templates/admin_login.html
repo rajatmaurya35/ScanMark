@@ -76,10 +76,11 @@
                                 <label for="password" class="form-label">Password</label>
                                 <input type="password" class="form-control" id="password" name="password" required>
                             </div>
-                            <div class="d-grid">
+                            <div class="d-grid gap-2">
                                 <button type="submit" class="btn btn-primary btn-login">
                                     <i class="fas fa-sign-in-alt me-2"></i>Login
                                 </button>
+                                <a href="{{ url_for('register_admin') }}" class="btn btn-success">Register New Admin</a>
                             </div>
                         </form>
                     </div>
