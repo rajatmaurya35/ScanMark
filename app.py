@@ -22,20 +22,20 @@ logger = logging.getLogger(__name__)
 # Initialize Supabase client
 supabase_url = "https://aaluawvcohqfhevkdnuv.supabase.co"
 supabase_key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFhbHVhd3Zjb2hxZmhldmtkbnV2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDIyNzY3MzcsImV4cCI6MjA1Nzg1MjczN30.kKL_B4sw1nwY6lbzgyPHQYoC_uqDsPkT51ZOnhr6MNA"
-
-try:
-    if not supabase_url or not supabase_key:
-        raise ValueError("Supabase URL or Key not found")
-    supabase = create_client(supabase_url, supabase_key)
-    logger.info("Supabase client initialized successfully")
-except Exception as e:
-    logger.error(f"Failed to initialize Supabase client: {str(e)}")
-
-# Load environment variables
-load_dotenv()
+supabase = create_client(supabase_url, supabase_key)
 
 # Create static directory for QR codes
 os.makedirs('static/qr_codes', exist_ok=True)
+
+# Admin required decorator
+def admin_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'admin_id' not in session:
+            flash('Please log in first', 'danger')
+            return redirect(url_for('admin_login'))
+        return f(*args, **kwargs)
+    return decorated_function
 
 # Error handlers
 @app.errorhandler(500)
@@ -70,19 +70,9 @@ def get_public_url():
         return f"https://{os.getenv('VERCEL_URL')}"
     return request.url_root.rstrip('/')
 
-# Admin required decorator
-def admin_required(f):
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if 'admin' not in session:
-            flash('Please login as admin first', 'danger')
-            return redirect(url_for('admin_login'))
-        return f(*args, **kwargs)
-    return decorated_function
-
 @app.route('/')
 def index():
-    if 'admin' in session:
+    if 'admin_id' in session:
         return redirect(url_for('admin_dashboard'))
     return redirect(url_for('admin_login'))
 
@@ -101,7 +91,7 @@ def admin_login():
             if result.data and len(result.data) > 0:
                 admin = result.data[0]
                 if check_password_hash(admin['password_hash'], password):
-                    session['admin'] = username
+                    session['admin_id'] = admin['id']
                     flash('Login successful!', 'success')
                     return redirect(url_for('admin_dashboard'))
                     
