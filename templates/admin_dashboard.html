@@ -67,6 +67,16 @@
             width: 3rem;
             height: 3rem;
         }
+        .debug-info {
+            display: none;
+            margin-top: 1rem;
+            padding: 1rem;
+            background: #f8f9fa;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
     </style>
 </head>
 <body>
@@ -108,6 +118,7 @@
                         </div>
                         <div id="qrCode" class="text-center"></div>
                         <div id="errorMessage" class="error-message"></div>
+                        <div id="debugInfo" class="debug-info"></div>
                     </div>
                 </div>
             </div>
@@ -142,10 +153,12 @@
         const qrDiv = document.getElementById('qrCode');
         const errorDiv = document.getElementById('errorMessage');
         const loadingDiv = document.getElementById('loading');
+        const debugDiv = document.getElementById('debugInfo');
         
         // Clear previous content and show loading
         qrDiv.innerHTML = '';
         errorDiv.style.display = 'none';
+        debugDiv.style.display = 'none';
         loadingDiv.style.display = 'block';
         
         try {
@@ -162,6 +175,10 @@
             // Hide loading
             loadingDiv.style.display = 'none';
             
+            // Show debug info
+            debugDiv.style.display = 'block';
+            debugDiv.textContent = JSON.stringify(data, null, 2);
+            
             if (response.ok && data.qr_code) {
                 qrDiv.innerHTML = `
                     <img src="data:image/png;base64,${data.qr_code}" class="img-fluid" alt="QR Code">
@@ -177,6 +194,10 @@
             errorDiv.style.display = 'block';
             qrDiv.innerHTML = '';
             console.error('Error:', error);
+            
+            // Show debug info for error
+            debugDiv.style.display = 'block';
+            debugDiv.textContent = `Error Details:\n${error.stack || error.message}`;
         }
     });
 

@@ -100,9 +100,10 @@ def generate_qr():
             attendance_url = f"{base_url}/mark_attendance/{token}"
 
             # Generate QR code using segno
-            qr = segno.make(attendance_url)
+            qr = segno.make(attendance_url, micro=False)
             buffer = BytesIO()
-            qr.save(buffer, kind='png', scale=10)
+            qr.save(buffer, kind='png', scale=10, border=4)
+            buffer.seek(0)
             img_str = base64.b64encode(buffer.getvalue()).decode()
 
             logger.info("QR code generated successfully")
@@ -117,11 +118,17 @@ def generate_qr():
 
         except Exception as e:
             logger.error(f"QR generation error: {str(e)}")
-            return jsonify({'error': 'Failed to generate QR code image'}), 500
+            return jsonify({
+                'error': 'Failed to generate QR code image',
+                'details': str(e)
+            }), 500
 
     except Exception as e:
         logger.error(f"General error in generate_qr: {str(e)}")
-        return jsonify({'error': 'An unexpected error occurred'}), 500
+        return jsonify({
+            'error': 'An unexpected error occurred',
+            'details': str(e)
+        }), 500
 
 @app.route('/mark_attendance/<token>', methods=['GET', 'POST'])
 def mark_attendance(token):
