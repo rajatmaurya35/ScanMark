@@ -76,6 +76,7 @@ def generate_qr():
             result = supabase.table('qr_tokens').insert({
                 'token': token,
                 'session': session_name,
+                'created_at': datetime.utcnow().isoformat(),
                 'expires_at': expires_at.isoformat()
             }).execute()
             
@@ -107,6 +108,7 @@ def generate_qr():
             img_str = base64.b64encode(buffer.getvalue()).decode()
 
             logger.info("QR code generated successfully")
+            logger.info(f"Attendance URL: {attendance_url}")
             response_data = {
                 'success': True,
                 'qr_code': img_str,
@@ -135,38 +137,53 @@ def mark_attendance(token):
     try:
         # Verify token
         result = supabase.table('qr_tokens').select('*').eq('token', token).execute()
+        
         if not result.data:
-            return render_template('error.html', message='Invalid or expired QR code')
+            return render_template('error.html', message='Invalid QR code'), 400
 
         token_data = result.data[0]
-        if datetime.fromisoformat(token_data['expires_at']) < datetime.utcnow():
-            return render_template('error.html', message='QR code has expired')
+        expires_at = datetime.fromisoformat(token_data['expires_at'].replace('Z', '+00:00'))
+        
+        if expires_at < datetime.utcnow():
+            return render_template('error.html', message='QR code has expired'), 400
 
         if request.method == 'POST':
             student_id = request.form.get('student_id')
             if not student_id:
-                return render_template('error.html', message='Student ID is required')
+                return render_template('attendance_form.html', token=token, error='Student ID is required')
+
+            # Check if attendance already marked
+            existing = supabase.table('attendance').select('*')\
+                .eq('student_id', student_id)\
+                .gte('created_at', datetime.utcnow().date().isoformat())\
+                .execute()
+
+            if existing.data:
+                return render_template('error.html', message='Attendance already marked for today'), 400
 
             # Mark attendance
             try:
                 result = supabase.table('attendance').insert({
                     'student_id': student_id,
-                    'status': 'present'
+                    'status': 'present',
+                    'created_at': datetime.utcnow().isoformat()
                 }).execute()
                 
                 if not result.data:
-                    raise Exception("Failed to mark attendance")
+                    return render_template('error.html', message='Failed to mark attendance'), 500
                     
                 return render_template('success.html', message='Attendance marked successfully!')
+                
             except Exception as e:
                 logger.error(f"Attendance marking error: {str(e)}")
-                return render_template('error.html', message='Failed to mark attendance')
+                return render_template('error.html', message='Failed to mark attendance'), 500
 
+        # GET request - show the form
         return render_template('attendance_form.html', token=token)
 
     except Exception as e:
         logger.error(f"Error in mark_attendance: {str(e)}")
-        return render_template('error.html', message='An error occurred')
+        return render_template('error.html', message='An error occurred'), 500
 
 @app.route('/admin/attendance')
 def admin_attendance():

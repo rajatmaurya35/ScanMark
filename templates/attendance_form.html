@@ -70,7 +70,7 @@
                         </div>
                         {% else %}
                         <h4 class="card-title mb-4">Mark Attendance</h4>
-                        <form method="POST" action="{{ url_for('mark_attendance', token=token) }}">
+                        <form method="POST">
                             <div class="mb-3">
                                 <label for="student_id" class="form-label">Student ID</label>
                                 <input type="text" class="form-control" id="student_id" name="student_id" required 
