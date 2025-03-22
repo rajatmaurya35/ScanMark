@@ -1,44 +1,28 @@
 import os
-import json
-import secrets
-from datetime import datetime, timedelta
-from flask import Flask, render_template, request, jsonify, send_file, make_response, redirect, url_for, flash, session
-from werkzeug.security import generate_password_hash, check_password_hash
-from supabase import create_client
-from functools import wraps
 import qrcode
+import logging
 from io import BytesIO
 import base64
-import logging
+from datetime import datetime, timedelta
+from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
+from werkzeug.security import generate_password_hash, check_password_hash
+from supabase import create_client, Client
 
-# Initialize Flask app
-app = Flask(__name__)
-app.config['SECRET_KEY'] = '5e7f9b7c1a4d3e2b8f6c9a0d5e2f1b4a7890123456789abcdef0123456789ab'
-
-# Initialize logging
+# Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Initialize Supabase client
-supabase_url = "https://aaluawvcohqfhevkdnuv.supabase.co"
-supabase_key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFhbHVhd3Zjb2hxZmhldmtkbnV2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDIyNzY3MzcsImV4cCI6MjA1Nzg1MjczN30.kKL_B4sw1nwY6lbzgyPHQYoC_uqDsPkT51ZOnhr6MNA"
-supabase = create_client(supabase_url, supabase_key)
+app = Flask(__name__)
+app.secret_key = '5e7f9b7c1a4d3e2b8f6c9a0d5e2f1b4a7890123456789abcdef0123456789ab'
 
-# Create static directory for QR codes if it doesn't exist
-os.makedirs('static/qr_codes', exist_ok=True)
-
-def admin_required(f):
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if not session.get('admin_id'):
-            flash('Please log in first', 'danger')
-            return redirect(url_for('admin_login'))
-        return f(*args, **kwargs)
-    return decorated_function
+# Supabase configuration
+SUPABASE_URL = "https://aaluawvcohqfhevkdnuv.supabase.co"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFhbHVhd3Zjb2hxZmhldmtkbnV2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDIyNzY3MzcsImV4cCI6MjA1Nzg1MjczN30.kKL_B4sw1nwY6lbzgyPHQYoC_uqDsPkT51ZOnhr6MNA"
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 @app.route('/')
 def index():
-    if session.get('admin_id'):
+    if 'admin_id' in session:
         return redirect(url_for('admin_dashboard'))
     return redirect(url_for('admin_login'))
 
@@ -48,124 +32,108 @@ def admin_login():
         username = request.form.get('username')
         password = request.form.get('password')
         
-        if not username or not password:
-            flash('Please provide both username and password', 'danger')
-            return redirect(url_for('admin_login'))
-            
         try:
             result = supabase.table('admins').select('*').eq('username', username).execute()
-            
-            if result.data and len(result.data) > 0:
-                admin = result.data[0]
-                if check_password_hash(admin['password_hash'], password):
-                    session['admin_id'] = admin['id']
-                    session['username'] = admin['username']
-                    flash('Login successful!', 'success')
-                    return redirect(url_for('admin_dashboard'))
-            
-            flash('Invalid username or password', 'danger')
-            return redirect(url_for('admin_login'))
-            
+            if result.data and check_password_hash(result.data[0]['password_hash'], password):
+                session['admin_id'] = result.data[0]['id']
+                session['username'] = username
+                return redirect(url_for('admin_dashboard'))
+            else:
+                flash('Invalid username or password', 'danger')
         except Exception as e:
-            logger.error(f"Error during login: {str(e)}")
-            flash('An error occurred', 'danger')
-            return redirect(url_for('admin_login'))
+            logger.error(f"Login error: {str(e)}")
+            flash('An error occurred during login', 'danger')
             
     return render_template('admin_login.html')
 
 @app.route('/admin/dashboard')
-@admin_required
 def admin_dashboard():
+    if 'admin_id' not in session:
+        return redirect(url_for('admin_login'))
     return render_template('admin_dashboard.html')
 
-@app.route('/admin/attendance')
-@admin_required
-def get_attendance():
-    try:
-        result = supabase.table('attendance').select('*').order('created_at', desc=True).limit(50).execute()
-        return jsonify(result.data if result.data else [])
-    except Exception as e:
-        logger.error(f"Error fetching attendance: {str(e)}")
-        return jsonify({'error': 'Failed to fetch records'}), 500
-
 @app.route('/generate_qr', methods=['POST'])
-@admin_required
 def generate_qr():
+    if 'admin_id' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+
     try:
-        token = secrets.token_urlsafe(32)
-        session_name = request.form.get('session', 'Default Session')
+        session_name = request.form.get('session')
+        if not session_name:
+            return jsonify({'error': 'Session name is required'}), 400
+
+        # Generate unique token
+        token = base64.urlsafe_b64encode(os.urandom(16)).decode('utf-8')
         expires_at = datetime.utcnow() + timedelta(minutes=15)
-        
-        token_data = {
+
+        # Save token to database
+        supabase.table('qr_tokens').insert({
             'token': token,
             'session': session_name,
-            'expires_at': expires_at.strftime('%Y-%m-%d %H:%M:%S')
-        }
-        
-        result = supabase.table('qr_tokens').insert(token_data).execute()
-        
-        if not result.data:
-            raise Exception("Failed to save token")
-            
-        attendance_url = f"{request.host_url.rstrip('/')}/attendance/{token}"
+            'expires_at': expires_at.isoformat()
+        }).execute()
+
+        # Generate QR code
         qr = qrcode.QRCode(version=1, box_size=10, border=5)
+        attendance_url = f"{request.host_url}mark_attendance/{token}"
         qr.add_data(attendance_url)
         qr.make(fit=True)
-        
-        img = qr.make_image(fill_color="black", back_color="white")
+
+        # Create QR code image
         img_buffer = BytesIO()
+        img = qr.make_image(fill_color="black", back_color="white")
         img.save(img_buffer, format='PNG')
         img_str = base64.b64encode(img_buffer.getvalue()).decode()
-        
+
         return jsonify({
             'qr_code': img_str,
             'url': attendance_url,
-            'expires_at': expires_at.strftime('%Y-%m-%d %H:%M:%S')
+            'expires_at': expires_at.isoformat()
         })
-        
-    except Exception as e:
-        logger.error(f"Error generating QR: {str(e)}")
-        return jsonify({'error': 'Failed to generate QR'}), 500
 
-@app.route('/attendance/<token>', methods=['GET', 'POST'])
+    except Exception as e:
+        logger.error(f"QR generation error: {str(e)}")
+        return jsonify({'error': 'Failed to generate QR code'}), 500
+
+@app.route('/admin/attendance')
+def admin_attendance():
+    if 'admin_id' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    try:
+        result = supabase.table('attendance').select('*').order('created_at.desc').limit(10).execute()
+        return jsonify(result.data)
+    except Exception as e:
+        logger.error(f"Error fetching attendance: {str(e)}")
+        return jsonify({'error': 'Failed to fetch attendance'}), 500
+
+@app.route('/mark_attendance/<token>', methods=['GET', 'POST'])
 def mark_attendance(token):
     try:
+        # Verify token
         result = supabase.table('qr_tokens').select('*').eq('token', token).execute()
-        
         if not result.data:
-            flash('Invalid QR code', 'danger')
-            return render_template('error.html', message='Invalid QR code')
-            
+            return render_template('error.html', message='Invalid or expired QR code')
+
         token_data = result.data[0]
-        expires_at = datetime.strptime(token_data['expires_at'], '%Y-%m-%d %H:%M:%S')
-        
-        if expires_at < datetime.utcnow():
-            flash('QR code has expired', 'danger')
+        if datetime.fromisoformat(token_data['expires_at']) < datetime.utcnow():
             return render_template('error.html', message='QR code has expired')
-            
+
         if request.method == 'POST':
             student_id = request.form.get('student_id')
-            
             if not student_id:
-                flash('Please provide your student ID', 'danger')
-                return redirect(url_for('mark_attendance', token=token))
-                
-            attendance_data = {
+                return render_template('error.html', message='Student ID is required')
+
+            # Mark attendance
+            supabase.table('attendance').insert({
                 'student_id': student_id,
                 'status': 'present'
-            }
-            
-            result = supabase.table('attendance').insert(attendance_data).execute()
-            
-            if result.data:
-                flash('Attendance marked successfully!', 'success')
-                return render_template('success.html')
-            else:
-                flash('Failed to mark attendance', 'danger')
-                return redirect(url_for('mark_attendance', token=token))
-                
+            }).execute()
+
+            return render_template('success.html')
+
         return render_template('attendance_form.html', token=token)
-        
+
     except Exception as e:
         logger.error(f"Error marking attendance: {str(e)}")
         return render_template('error.html', message='An error occurred')
@@ -206,7 +174,6 @@ def register_admin():
 @app.route('/logout')
 def logout():
     session.clear()
-    flash('You have been logged out', 'info')
     return redirect(url_for('admin_login'))
 
 @app.errorhandler(404)
