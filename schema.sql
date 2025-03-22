@@ -3,18 +3,9 @@ DROP TABLE IF EXISTS public.attendance;
 DROP TABLE IF EXISTS public.qr_tokens;
 DROP TABLE IF EXISTS public.admins;
 
--- Create admins table
-CREATE TABLE IF NOT EXISTS public.admins (
-    id SERIAL PRIMARY KEY,
-    username TEXT UNIQUE NOT NULL,
-    password_hash TEXT NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
 -- Create qr_tokens table
 CREATE TABLE IF NOT EXISTS public.qr_tokens (
-    id SERIAL PRIMARY KEY,
-    token TEXT UNIQUE NOT NULL,
+    token TEXT PRIMARY KEY,
     session TEXT NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     expires_at TIMESTAMP WITH TIME ZONE NOT NULL
@@ -22,10 +13,17 @@ CREATE TABLE IF NOT EXISTS public.qr_tokens (
 
 -- Create attendance table
 CREATE TABLE IF NOT EXISTS public.attendance (
-    id SERIAL PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     student_id TEXT NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     status TEXT DEFAULT 'present'
+);
+
+-- Create admins table
+CREATE TABLE IF NOT EXISTS public.admins (
+    username TEXT PRIMARY KEY,
+    password_hash TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Create initial admin user with password 'admin123'
