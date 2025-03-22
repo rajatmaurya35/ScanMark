@@ -92,7 +92,8 @@ def generate_qr():
             )
             
             # Use the full URL for QR code
-            attendance_url = f"{request.host_url.rstrip('/')}/mark_attendance/{token}"
+            base_url = request.host_url.rstrip('/')
+            attendance_url = f"{base_url}/mark_attendance/{token}"
             qr.add_data(attendance_url)
             qr.make(fit=True)
 

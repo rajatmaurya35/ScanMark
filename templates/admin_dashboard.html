@@ -49,6 +49,15 @@
             border-radius: 10px;
             overflow: hidden;
         }
+        .error-message {
+            display: none;
+            margin-top: 1rem;
+            padding: 0.75rem 1.25rem;
+            border-radius: 8px;
+            background-color: #ffe0e3;
+            color: #dc3545;
+            border: 1px solid #ffccd1;
+        }
     </style>
 </head>
 <body>
@@ -75,7 +84,7 @@
                     <div class="card-body">
                         <h5 class="card-title">Generate QR Code</h5>
                         <p class="card-text text-muted mb-4">Create a QR code for attendance marking</p>
-                        <form id="qrForm" onsubmit="generateQR(event)">
+                        <form id="qrForm">
                             <div class="mb-3">
                                 <label for="session" class="form-label">Session Name</label>
                                 <input type="text" class="form-control" id="session" name="session" required>
@@ -83,7 +92,7 @@
                             <button type="submit" class="btn btn-primary w-100">Generate QR Code</button>
                         </form>
                         <div id="qrCode" class="text-center"></div>
-                        <div id="qrError" class="alert alert-danger mt-3" style="display: none;"></div>
+                        <div id="errorMessage" class="error-message"></div>
                     </div>
                 </div>
             </div>
@@ -111,47 +120,62 @@
     </div>
 
     <script>
-    async function generateQR(event) {
-        event.preventDefault();
-        const form = event.target;
-        const session = form.session.value;
+    document.getElementById('qrForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const session = document.getElementById('session').value;
         const qrDiv = document.getElementById('qrCode');
-        const errorDiv = document.getElementById('qrError');
+        const errorDiv = document.getElementById('errorMessage');
+        
+        // Clear previous content
+        qrDiv.innerHTML = '';
+        errorDiv.style.display = 'none';
         
         try {
+            const formData = new FormData();
+            formData.append('session', session);
+            
             const response = await fetch('/generate_qr', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                },
-                body: `session=${encodeURIComponent(session)}`
+                body: formData
             });
             
             const data = await response.json();
             
-            if (response.ok) {
-                errorDiv.style.display = 'none';
-                qrDiv.innerHTML = `<img src="data:image/png;base64,${data.qr_code}" class="img-fluid">
-                                 <p class="mt-2"><small class="text-muted">Expires in 15 minutes</small></p>`;
+            if (response.ok && data.qr_code) {
+                qrDiv.innerHTML = `
+                    <img src="data:image/png;base64,${data.qr_code}" class="img-fluid" alt="QR Code">
+                    <p class="mt-2 text-muted small">Expires in 15 minutes</p>
+                    <p class="text-muted small">URL: ${data.url}</p>
+                `;
             } else {
-                errorDiv.textContent = data.error || 'Failed to generate QR code';
-                errorDiv.style.display = 'block';
-                qrDiv.innerHTML = '';
+                throw new Error(data.error || 'Failed to generate QR code');
             }
         } catch (error) {
-            errorDiv.textContent = 'An error occurred while generating the QR code';
+            errorDiv.textContent = error.message;
             errorDiv.style.display = 'block';
             qrDiv.innerHTML = '';
         }
-    }
+    });
 
     async function updateAttendance() {
         try {
             const response = await fetch('/admin/attendance');
             const data = await response.json();
             
+            if (!response.ok) {
+                throw new Error('Failed to fetch attendance');
+            }
+            
             const tbody = document.getElementById('attendanceList');
             tbody.innerHTML = '';
+            
+            if (data.length === 0) {
+                const row = document.createElement('tr');
+                row.innerHTML = '<td colspan="3" class="text-center text-muted">No attendance records yet</td>';
+                tbody.appendChild(row);
+                return;
+            }
             
             data.forEach(record => {
                 const row = document.createElement('tr');
