@@ -28,7 +28,6 @@ CREATE TABLE public.attendance (
     status VARCHAR(20) DEFAULT 'present'
 );
 
--- Create initial admin users
+-- Create initial admin user with password 'admin123'
 INSERT INTO public.admins (username, password_hash) VALUES 
-('admin', 'pbkdf2:sha256:600000$7NEr7GfqsN1nEHCB$d2f5495e6f5c3f7c0c71f7730eac784d7675e60d5b6f2e43146ef71dfdc6'),
-('rajatmaurya35', 'pbkdf2:sha256:600000$XvQUeB7pK9nM$3a8f7ea3dcfb146b63f8ab22e4e35d965d6956a456654fcd590d1213e22b9876');
+('admin', 'pbkdf2:sha256:260000$gWvaBcZxY9QkGxUp$d76f827a4f07f4a69b47d7f90f14d8fb6eef3f9cfb7d84b8ca6c4e42241619c7');

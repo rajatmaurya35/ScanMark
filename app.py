@@ -170,6 +170,42 @@ def mark_attendance(token):
         logger.error(f"Error marking attendance: {str(e)}")
         return render_template('error.html', message='An error occurred')
 
+@app.route('/register_admin', methods=['GET', 'POST'])
+def register_admin():
+    if 'admin_id' not in session:
+        return redirect(url_for('admin_login'))
+        
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        confirm_password = request.form.get('confirm_password')
+        
+        if not username or not password or not confirm_password:
+            flash('All fields are required', 'danger')
+            return redirect(url_for('register_admin'))
+            
+        if password != confirm_password:
+            flash('Passwords do not match', 'danger')
+            return redirect(url_for('register_admin'))
+            
+        # Check if username already exists
+        result = supabase.table('admins').select('*').eq('username', username).execute()
+        if result.data:
+            flash('Username already exists', 'danger')
+            return redirect(url_for('register_admin'))
+            
+        # Hash password and create new admin
+        password_hash = generate_password_hash(password)
+        supabase.table('admins').insert({
+            'username': username,
+            'password_hash': password_hash
+        }).execute()
+        
+        flash('New admin registered successfully', 'success')
+        return redirect(url_for('admin_dashboard'))
+        
+    return render_template('register_admin.html')
+
 @app.route('/logout')
 def logout():
     session.clear()
