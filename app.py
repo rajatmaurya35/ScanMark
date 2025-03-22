@@ -13,11 +13,11 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-app.secret_key = '5e7f9b7c1a4d3e2b8f6c9a0d5e2f1b4a7890123456789abcdef0123456789ab'
+app.secret_key = os.environ.get('SECRET_KEY', '5e7f9b7c1a4d3e2b8f6c9a0d5e2f1b4a7890123456789abcdef0123456789ab')
 
 # Supabase configuration
-SUPABASE_URL = "https://aaluawvcohqfhevkdnuv.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFhbHVhd3Zjb2hxZmhldmtkbnV2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDIyNzY3MzcsImV4cCI6MjA1Nzg1MjczN30.kKL_B4sw1nwY6lbzgyPHQYoC_uqDsPkT51ZOnhr6MNA"
+SUPABASE_URL = os.environ.get('SUPABASE_URL', 'https://aaluawvcohqfhevkdnuv.supabase.co')
+SUPABASE_KEY = os.environ.get('SUPABASE_KEY', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFhbHVhd3Zjb2hxZmhldmtkbnV2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDIyNzY3MzcsImV4cCI6MjA1Nzg1MjczN30.kKL_B4sw1nwY6lbzgyPHQYoC_uqDsPkT51ZOnhr6MNA')
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 @app.route('/')
@@ -37,6 +37,7 @@ def admin_login():
             if result.data and check_password_hash(result.data[0]['password_hash'], password):
                 session['admin_id'] = result.data[0]['id']
                 session['username'] = username
+                flash('Login successful!', 'success')
                 return redirect(url_for('admin_dashboard'))
             else:
                 flash('Invalid username or password', 'danger')
@@ -49,29 +50,34 @@ def admin_login():
 @app.route('/admin/dashboard')
 def admin_dashboard():
     if 'admin_id' not in session:
+        flash('Please login first', 'danger')
         return redirect(url_for('admin_login'))
     return render_template('admin_dashboard.html')
 
 @app.route('/generate_qr', methods=['POST'])
 def generate_qr():
     if 'admin_id' not in session:
-        return jsonify({'error': 'Unauthorized'}), 401
+        return jsonify({'error': 'Please login first'}), 401
 
     try:
         session_name = request.form.get('session')
         if not session_name:
             return jsonify({'error': 'Session name is required'}), 400
 
-        # Generate unique token
+        # Generate unique token and expiry time
         token = base64.urlsafe_b64encode(os.urandom(16)).decode('utf-8')
+        expires_at = datetime.utcnow() + timedelta(minutes=15)
 
         # Save token to database
         try:
-            supabase.table('qr_tokens').insert({
+            result = supabase.table('qr_tokens').insert({
                 'token': token,
                 'session': session_name,
-                'expires_at': datetime.utcnow() + timedelta(minutes=15)
+                'expires_at': expires_at.isoformat()
             }).execute()
+            
+            if not result.data:
+                raise Exception("Failed to save token to database")
         except Exception as e:
             logger.error(f"Database error: {str(e)}")
             return jsonify({'error': 'Failed to save token'}), 500
@@ -84,7 +90,9 @@ def generate_qr():
                 box_size=10,
                 border=4,
             )
-            attendance_url = f"{request.host_url}mark_attendance/{token}"
+            
+            # Use the full URL for QR code
+            attendance_url = f"{request.host_url.rstrip('/')}/mark_attendance/{token}"
             qr.add_data(attendance_url)
             qr.make(fit=True)
 
@@ -95,28 +103,18 @@ def generate_qr():
             img_str = base64.b64encode(img_buffer.getvalue()).decode()
 
             return jsonify({
+                'success': True,
                 'qr_code': img_str,
-                'url': attendance_url
+                'url': attendance_url,
+                'expires_at': expires_at.isoformat()
             })
         except Exception as e:
             logger.error(f"QR generation error: {str(e)}")
-            return jsonify({'error': 'Failed to generate QR image'}), 500
+            return jsonify({'error': 'Failed to generate QR code'}), 500
 
     except Exception as e:
         logger.error(f"General error: {str(e)}")
         return jsonify({'error': 'An unexpected error occurred'}), 500
-
-@app.route('/admin/attendance')
-def admin_attendance():
-    if 'admin_id' not in session:
-        return jsonify({'error': 'Unauthorized'}), 401
-
-    try:
-        result = supabase.table('attendance').select('*').order('created_at.desc').limit(10).execute()
-        return jsonify(result.data)
-    except Exception as e:
-        logger.error(f"Error fetching attendance: {str(e)}")
-        return jsonify({'error': 'Failed to fetch attendance'}), 500
 
 @app.route('/mark_attendance/<token>', methods=['GET', 'POST'])
 def mark_attendance(token):
@@ -136,18 +134,37 @@ def mark_attendance(token):
                 return render_template('error.html', message='Student ID is required')
 
             # Mark attendance
-            supabase.table('attendance').insert({
-                'student_id': student_id,
-                'status': 'present'
-            }).execute()
-
-            return render_template('success.html')
+            try:
+                result = supabase.table('attendance').insert({
+                    'student_id': student_id,
+                    'status': 'present'
+                }).execute()
+                
+                if not result.data:
+                    raise Exception("Failed to mark attendance")
+                    
+                return render_template('success.html', message='Attendance marked successfully!')
+            except Exception as e:
+                logger.error(f"Attendance marking error: {str(e)}")
+                return render_template('error.html', message='Failed to mark attendance')
 
         return render_template('attendance_form.html', token=token)
 
     except Exception as e:
-        logger.error(f"Error marking attendance: {str(e)}")
+        logger.error(f"Error in mark_attendance: {str(e)}")
         return render_template('error.html', message='An error occurred')
+
+@app.route('/admin/attendance')
+def admin_attendance():
+    if 'admin_id' not in session:
+        return jsonify({'error': 'Please login first'}), 401
+
+    try:
+        result = supabase.table('attendance').select('*').order('created_at', desc=True).limit(10).execute()
+        return jsonify(result.data if result.data else [])
+    except Exception as e:
+        logger.error(f"Error fetching attendance: {str(e)}")
+        return jsonify({'error': 'Failed to fetch attendance records'}), 500
 
 @app.route('/register_admin', methods=['GET', 'POST'])
 def register_admin():
@@ -164,27 +181,37 @@ def register_admin():
             flash('Passwords do not match', 'danger')
             return redirect(url_for('register_admin'))
             
-        # Check if username already exists
-        result = supabase.table('admins').select('*').eq('username', username).execute()
-        if result.data:
-            flash('Username already exists', 'danger')
-            return redirect(url_for('register_admin'))
+        try:
+            # Check if username already exists
+            result = supabase.table('admins').select('*').eq('username', username).execute()
+            if result.data:
+                flash('Username already exists', 'danger')
+                return redirect(url_for('register_admin'))
+                
+            # Hash password and create new admin
+            password_hash = generate_password_hash(password)
+            result = supabase.table('admins').insert({
+                'username': username,
+                'password_hash': password_hash
+            }).execute()
             
-        # Hash password and create new admin
-        password_hash = generate_password_hash(password)
-        supabase.table('admins').insert({
-            'username': username,
-            'password_hash': password_hash
-        }).execute()
-        
-        flash('Registration successful! Please login.', 'success')
-        return redirect(url_for('admin_login'))
+            if not result.data:
+                raise Exception("Failed to create admin account")
+                
+            flash('Registration successful! Please login.', 'success')
+            return redirect(url_for('admin_login'))
+            
+        except Exception as e:
+            logger.error(f"Registration error: {str(e)}")
+            flash('An error occurred during registration', 'danger')
+            return redirect(url_for('register_admin'))
         
     return render_template('register_admin.html')
 
 @app.route('/logout')
 def logout():
     session.clear()
+    flash('You have been logged out', 'info')
     return redirect(url_for('admin_login'))
 
 @app.errorhandler(404)
