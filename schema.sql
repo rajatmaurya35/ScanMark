@@ -1,30 +1,31 @@
 -- Drop existing tables if they exist
-DROP TABLE IF EXISTS public.attendance CASCADE;
-DROP TABLE IF EXISTS public.qr_tokens CASCADE;
-DROP TABLE IF EXISTS public.admins CASCADE;
+DROP TABLE IF EXISTS public.attendance;
+DROP TABLE IF EXISTS public.qr_tokens;
+DROP TABLE IF EXISTS public.admins;
 
 -- Create admins table
 CREATE TABLE public.admins (
-    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    username TEXT UNIQUE NOT NULL,
+    id SERIAL PRIMARY KEY,
+    username VARCHAR(100) NOT NULL UNIQUE,
     password_hash TEXT NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW())
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Create qr_tokens table
 CREATE TABLE public.qr_tokens (
-    token TEXT PRIMARY KEY,
-    session TEXT NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW()),
-    expires_at TIMESTAMP WITH TIME ZONE NOT NULL
+    id SERIAL PRIMARY KEY,
+    token VARCHAR(255) NOT NULL UNIQUE,
+    session VARCHAR(100),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMP NOT NULL
 );
 
 -- Create attendance table
 CREATE TABLE public.attendance (
-    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    student_id TEXT NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW()),
-    status TEXT DEFAULT 'present'
+    id SERIAL PRIMARY KEY,
+    student_id VARCHAR(100) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    status VARCHAR(20) DEFAULT 'present'
 );
 
 -- Create initial admin user (password: admin123)
