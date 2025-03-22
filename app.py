@@ -1,226 +1,239 @@
 import os
 import json
 import secrets
-from datetime import datetime, timedelta
-from flask import Flask, render_template, request, jsonify, send_file, make_response
-from supabase import create_client, Client
-from io import BytesIO
+from datetime import datetime, timedelta, timezone
+from flask import Flask, render_template, request, jsonify, send_file, make_response, redirect, url_for, flash, session
+from werkzeug.security import generate_password_hash, check_password_hash
+from supabase import create_client
+from functools import wraps
 import qrcode
+from io import BytesIO
+import base64
 import logging
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
+# Initialize Flask app
+app = Flask(__name__)
+app.config['SECRET_KEY'] = os.getenv('FLASK_SECRET_KEY', 'dev_5e7f9b7c1a4d3e2b8f6c9a0d5e2f1b4a')
+
+# Initialize logging
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = Flask(__name__)
-
 # Initialize Supabase client
-try:
-    supabase_url = os.environ.get('SUPABASE_URL')
-    supabase_key = os.environ.get('SUPABASE_KEY')
-    
-    if not supabase_url or not supabase_key:
-        raise ValueError("Missing Supabase credentials")
-        
-    supabase: Client = create_client(supabase_url, supabase_key)
-    logger.info("Supabase client initialized successfully")
+supabase_url = "https://aaluawvcohqfhevkdnuv.supabase.co"
+supabase_key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFhbHVhd3Zjb2hxZmhldmtkbnV2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDIyNzY3MzcsImV4cCI6MjA1Nzg1MjczN30.kKL_B4sw1nwY6lbzgyPHQYoC_uqDsPkT51ZOnhr6MNA"
 
-    # Verify database connection
-    try:
-        # Test query to verify connection
-        supabase.table('students').select('*').limit(1).execute()
-        logger.info("Successfully connected to Supabase database")
-    except Exception as e:
-        logger.error(f"Failed to connect to Supabase database: {str(e)}")
-        raise
+try:
+    if not supabase_url or not supabase_key:
+        raise ValueError("Supabase URL or Key not found")
+    supabase = create_client(supabase_url, supabase_key)
+    logger.info("Supabase client initialized successfully")
 except Exception as e:
     logger.error(f"Failed to initialize Supabase client: {str(e)}")
-    raise
 
-@app.route('/')
-def index():
-    """Dashboard page"""
-    try:
-        # Get all students
-        students_response = supabase.table('students').select('*').execute()
-        if hasattr(students_response, 'error') and students_response.error:
-            raise Exception(f"Supabase students query error: {students_response.error}")
-        students = students_response.data if students_response.data else []
-        
-        # Get recent attendances with student info
-        attendances_response = supabase.table('attendances')\
-            .select('*, students(name)')\
-            .order('date', desc=True)\
-            .limit(10)\
-            .execute()
-        if hasattr(attendances_response, 'error') and attendances_response.error:
-            raise Exception(f"Supabase attendances query error: {attendances_response.error}")
-        attendances = attendances_response.data if attendances_response.data else []
-        
-        return render_template('dashboard.html', 
-                             students=students, 
-                             attendances=attendances,
-                             now=datetime.now())
-    except Exception as e:
-        logger.error(f"Error rendering dashboard: {str(e)}")
-        return jsonify({'error': str(e)}), 500
+# Load environment variables
+load_dotenv()
 
-@app.route('/scan')
-def scan():
-    """QR code scanning page"""
-    try:
-        return render_template('scan.html')
-    except Exception as e:
-        logger.error(f"Error rendering scan page: {str(e)}")
-        return jsonify({'error': str(e)}), 500
+# Create static directory for QR codes
+os.makedirs('static/qr_codes', exist_ok=True)
 
-@app.route('/generate-qr', methods=['GET'])
-def get_qr_code():
-    """Generate QR code"""
-    try:
-        # Generate token with 5-minute expiry
-        token = secrets.token_urlsafe(32)
-        expiry = datetime.now() + timedelta(minutes=5)
-        
-        # Save token to Supabase
-        token_response = supabase.table('qr_tokens').insert({
-            'token': token,
-            'expiry': expiry.isoformat(),
-            'created_at': datetime.now().isoformat()
-        }).execute()
-        
-        if hasattr(token_response, 'error') and token_response.error:
-            raise Exception(f"Failed to save token: {token_response.error}")
-        
-        # Generate QR code
-        qr = qrcode.QRCode(version=1, box_size=10, border=5)
-        qr.add_data(json.dumps({
-            'token': token,
-            'expiry': expiry.isoformat()
-        }))
-        qr.make(fit=True)
-        
-        # Create QR image
-        img = qr.make_image(fill_color="black", back_color="white")
-        img_io = BytesIO()
-        img.save(img_io, 'PNG')
-        img_io.seek(0)
-        
-        response = make_response(send_file(
-            img_io,
-            mimetype='image/png',
-            as_attachment=True,
-            download_name='attendance_qr.png'
-        ))
-        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
-        return response
-    except Exception as e:
-        logger.error(f"QR generation error: {str(e)}")
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/register', methods=['POST'])
-def register_student():
-    """Register student"""
-    try:
-        data = request.get_json() if request.is_json else request.form
-        student_id = data.get('student_id')
-        name = data.get('name')
-        
-        # Validate required fields
-        if not all([student_id, name]):
-            return jsonify({'error': 'Missing required fields'}), 400
-        
-        # Check if student already exists
-        existing_response = supabase.table('students')\
-            .select('*')\
-            .eq('student_id', student_id)\
-            .execute()
-            
-        if hasattr(existing_response, 'error') and existing_response.error:
-            raise Exception(f"Failed to check existing student: {existing_response.error}")
-            
-        if existing_response.data:
-            return jsonify({'error': 'Student ID already exists'}), 400
-        
-        # Create new student
-        new_student_response = supabase.table('students').insert({
-            'student_id': student_id,
-            'name': name,
-            'registered_on': datetime.now().isoformat()
-        }).execute()
-        
-        if hasattr(new_student_response, 'error') and new_student_response.error:
-            raise Exception(f"Failed to create student: {new_student_response.error}")
-        
-        return jsonify({'message': 'Student registered successfully'}), 201
-    except Exception as e:
-        logger.error(f"Registration error: {str(e)}")
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/mark-attendance', methods=['POST'])
-def mark_attendance():
-    """Mark attendance"""
-    try:
-        data = request.get_json() if request.is_json else request.form
-        token = data.get('token')
-        location = data.get('location', 'Unknown')
-        
-        # Validate token
-        if not token:
-            return jsonify({'error': 'Missing token'}), 400
-            
-        # Verify token
-        token_response = supabase.table('qr_tokens')\
-            .select('*')\
-            .eq('token', token)\
-            .execute()
-            
-        if hasattr(token_response, 'error') and token_response.error:
-            raise Exception(f"Failed to verify token: {token_response.error}")
-            
-        if not token_response.data:
-            return jsonify({'error': 'Invalid token'}), 400
-            
-        token_data = token_response.data[0]
-        expiry = datetime.fromisoformat(token_data['expiry'].replace('Z', '+00:00'))
-        
-        if expiry < datetime.now():
-            return jsonify({'error': 'Token has expired'}), 400
-        
-        # Mark attendance
-        attendance_response = supabase.table('attendances').insert({
-            'date': datetime.now().isoformat(),
-            'status': 'present',
-            'location': location
-        }).execute()
-        
-        if hasattr(attendance_response, 'error') and attendance_response.error:
-            raise Exception(f"Failed to mark attendance: {attendance_response.error}")
-            
-        # Delete used token
-        supabase.table('qr_tokens').delete().eq('token', token).execute()
-        
-        return jsonify({
-            'message': 'Attendance marked successfully',
-            'timestamp': datetime.now().isoformat()
-        }), 200
-    except Exception as e:
-        logger.error(f"Attendance marking error: {str(e)}")
-        return jsonify({'error': str(e)}), 500
+# Error handlers
+@app.errorhandler(500)
+def internal_error(error):
+    logger.error(f"Server error: {str(error)}")
+    return render_template('error.html', message="Internal server error. Please try again later."), 500
 
 @app.errorhandler(404)
 def not_found_error(error):
-    logger.error(f"404 error: {str(error)}")
-    return jsonify({'error': 'Not found'}), 404
+    return render_template('error.html', message="Page not found."), 404
 
-@app.errorhandler(500)
-def internal_error(error):
-    logger.error(f"500 error: {str(error)}")
-    return jsonify({'error': str(error)}), 500
+# Initialize database tables if they don't exist
+@app.before_first_request
+def init_db():
+    try:
+        # Check if tables exist by querying them
+        tables = ['admins', 'attendance', 'qr_tokens']
+        for table in tables:
+            try:
+                supabase.table(table).select('*').limit(1).execute()
+            except Exception as e:
+                logger.error(f"Table {table} not found: {str(e)}")
+                return jsonify({'error': f'Database table {table} not found'}), 500
+    except Exception as e:
+        logger.error(f"Database initialization error: {str(e)}")
+        return jsonify({'error': 'Failed to initialize database'}), 500
+
+# Get the public URL for the application
+def get_public_url():
+    """Get the public URL for the application"""
+    if os.getenv('VERCEL_URL'):
+        return f"https://{os.getenv('VERCEL_URL')}"
+    return request.url_root.rstrip('/')
+
+# Admin required decorator
+def admin_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'admin' not in session:
+            flash('Please login as admin first', 'danger')
+            return redirect(url_for('admin_login'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+@app.route('/')
+def index():
+    if 'admin' in session:
+        return redirect(url_for('admin_dashboard'))
+    return redirect(url_for('admin_login'))
+
+@app.route('/admin/login', methods=['GET', 'POST'])
+def admin_login():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        
+        if not all([username, password]):
+            flash('Please provide both username and password', 'danger')
+            return redirect(url_for('admin_login'))
+            
+        try:
+            result = supabase.table('admins').select('*').eq('username', username).execute()
+            if result.data and len(result.data) > 0:
+                admin = result.data[0]
+                if check_password_hash(admin['password_hash'], password):
+                    session['admin'] = username
+                    flash('Login successful!', 'success')
+                    return redirect(url_for('admin_dashboard'))
+                    
+            flash('Invalid username or password', 'danger')
+            return redirect(url_for('admin_login'))
+            
+        except Exception as e:
+            logger.error(f"Error during admin login: {str(e)}")
+            flash('An error occurred during login', 'danger')
+            return redirect(url_for('admin_login'))
+            
+    return render_template('admin_login.html')
+
+@app.route('/admin/dashboard')
+@admin_required
+def admin_dashboard():
+    return render_template('admin_dashboard.html')
+
+@app.route('/admin/attendance')
+@admin_required
+def get_attendance():
+    try:
+        # Get recent attendance records
+        result = supabase.table('attendance').select('*').order('created_at', desc=True).limit(50).execute()
+        
+        if not result.data:
+            return jsonify([])
+
+        return jsonify(result.data)
+        
+    except Exception as e:
+        logger.error(f"Error fetching attendance: {str(e)}")
+        return jsonify({'error': 'Failed to fetch attendance records'}), 500
+
+@app.route('/generate_qr', methods=['POST'])
+@admin_required
+def generate_qr():
+    try:
+        # Generate a random token
+        token = secrets.token_urlsafe(32)
+        expires_at = datetime.now() + timedelta(minutes=15)
+        
+        # Save token to database
+        token_data = {
+            'token': token,
+            'session': 'attendance',
+            'created_at': datetime.now().isoformat(),
+            'expires_at': expires_at.isoformat()
+        }
+        
+        result = supabase.table('qr_tokens').insert(token_data).execute()
+        
+        if not result.data:
+            logger.error("Failed to save QR token to database")
+            return jsonify({'error': 'Failed to generate QR code'}), 500
+
+        # Generate QR code
+        attendance_url = f"{get_public_url()}/attendance/{token}"
+        qr = qrcode.QRCode(version=1, box_size=10, border=5)
+        qr.add_data(attendance_url)
+        qr.make(fit=True)
+        
+        # Create QR code image
+        img = qr.make_image(fill_color="black", back_color="white")
+        img_buffer = BytesIO()
+        img.save(img_buffer, format='PNG')
+        img_str = base64.b64encode(img_buffer.getvalue()).decode()
+        
+        return jsonify({
+            'qr_code': f"data:image/png;base64,{img_str}",
+            'expires_at': expires_at.isoformat()
+        })
+        
+    except Exception as e:
+        logger.error(f"Error generating QR code: {str(e)}")
+        return jsonify({'error': 'Failed to generate QR code'}), 500
+
+@app.route('/attendance/<token>', methods=['GET', 'POST'])
+def mark_attendance(token):
+    try:
+        # Verify token
+        result = supabase.table('qr_tokens').select('*').eq('token', token).execute()
+        if not result.data:
+            flash('Invalid or expired QR code', 'danger')
+            return render_template('error.html', message='Invalid or expired QR code')
+            
+        token_data = result.data[0]
+        if datetime.fromisoformat(token_data['expires_at']) < datetime.now(timezone.utc):
+            flash('QR code has expired', 'danger')
+            return render_template('error.html', message='QR code has expired')
+            
+        if request.method == 'POST':
+            student_id = request.form.get('student_id')
+            
+            if not student_id:
+                flash('Please provide your student ID', 'danger')
+                return redirect(url_for('mark_attendance', token=token))
+                
+            try:
+                # Record attendance
+                attendance_data = {
+                    'student_id': student_id,
+                    'created_at': datetime.now(timezone.utc).isoformat(),
+                    'status': 'present'
+                }
+                
+                result = supabase.table('attendance').insert(attendance_data).execute()
+                if result.data:
+                    flash('Attendance marked successfully!', 'success')
+                    return render_template('success.html', message='Attendance marked successfully!')
+                else:
+                    flash('Failed to mark attendance', 'danger')
+                    return redirect(url_for('mark_attendance', token=token))
+                    
+            except Exception as e:
+                logger.error(f"Error marking attendance: {str(e)}")
+                flash('An error occurred while marking attendance', 'danger')
+                return redirect(url_for('mark_attendance', token=token))
+                
+        return render_template('attendance_form.html', token=token)
+        
+    except Exception as e:
+        logger.error(f"Error processing attendance: {str(e)}")
+        flash('An error occurred', 'danger')
+        return render_template('error.html', message='An error occurred')
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    flash('Logged out successfully', 'success')
+    return redirect(url_for('index'))
 
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port)
+    port = int(os.getenv('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=True)

@@ -1,0 +1,286 @@
+2025-03-22 11:25:18,503 [INFO] HTTP Request: GET https://aaluawvcohqfhevkdnuv.supabase.co/rest/v1/admins?select=%2A&username=eq.admin "HTTP/2 200 OK"
+2025-03-22 11:25:18,512 [INFO] Checking for admin account: [{'username': 'admin', 'name': 'Administrator', 'password': 'pbkdf2:sha256:600000$W5xlFeRaiQll3V6G$f99b99f09756185c252c868641eb20a40c127219baf150499677a6dc63f1614d', 'created_at': '2025-03-21T18:40:54.049065+00:00'}]
+2025-03-22 11:25:18,513 [INFO] Updating existing admin account
+2025-03-22 11:25:18,826 [INFO] HTTP Request: PATCH https://aaluawvcohqfhevkdnuv.supabase.co/rest/v1/admins?username=eq.admin "HTTP/2 200 OK"
+2025-03-22 11:25:18,827 [INFO] Admin account updated successfully
+2025-03-22 11:25:18,827 [INFO] Database initialized successfully
+2025-03-22 11:25:18,860 [INFO] [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5000
+2025-03-22 11:25:18,860 [INFO] [33mPress CTRL+C to quit[0m
+2025-03-22 11:25:18,864 [INFO]  * Restarting with stat
+2025-03-22 11:25:22,731 [INFO] HTTP Request: GET https://aaluawvcohqfhevkdnuv.supabase.co/rest/v1/admins?select=%2A&username=eq.admin "HTTP/2 200 OK"
+2025-03-22 11:25:22,736 [INFO] Checking for admin account: [{'username': 'admin', 'name': 'Administrator', 'password': 'pbkdf2:sha256:600000$NF72y6ZueAZbcfv5$9cbf07e3db4d362ffd74025832347d96d550dc7751cd507f3f0f6a89a4353c8a', 'created_at': '2025-03-21T18:40:54.049065+00:00'}]
+2025-03-22 11:25:22,736 [INFO] Updating existing admin account
+2025-03-22 11:25:22,988 [INFO] HTTP Request: PATCH https://aaluawvcohqfhevkdnuv.supabase.co/rest/v1/admins?username=eq.admin "HTTP/2 200 OK"
+2025-03-22 11:25:22,990 [INFO] Admin account updated successfully
+2025-03-22 11:25:22,990 [INFO] Database initialized successfully
+2025-03-22 11:25:23,004 [WARNING]  * Debugger is active!
+2025-03-22 11:25:23,012 [INFO]  * Debugger PIN: 252-252-229
+2025-03-22 11:26:23,708 [INFO] 127.0.0.1 - - [22/Mar/2025 11:26:23] "[32mGET / HTTP/1.1[0m" 302 -
+2025-03-22 11:26:23,797 [INFO] 127.0.0.1 - - [22/Mar/2025 11:26:23] "GET /admin_login HTTP/1.1" 200 -
+2025-03-22 11:26:23,978 [INFO] 127.0.0.1 - - [22/Mar/2025 11:26:23] "[33mGET /favicon.ico HTTP/1.1[0m" 404 -
+2025-03-22 11:26:31,149 [INFO] HTTP Request: GET https://aaluawvcohqfhevkdnuv.supabase.co/rest/v1/admins?select=%2A&username=eq.admin "HTTP/2 200 OK"
+2025-03-22 11:26:31,153 [INFO] Admin login attempt for username: admin
+2025-03-22 11:26:31,154 [INFO] Query result: [{'username': 'admin', 'name': 'Administrator', 'password': 'pbkdf2:sha256:600000$vSAIOaRrAOrIJHEp$c0f33c3c1fafb52d3ebbec2c4ffdfe8d1b9cb0f5dcb4822a0f5d16ea1276046b', 'created_at': '2025-03-21T18:40:54.049065+00:00'}]
+2025-03-22 11:26:32,002 [INFO] Admin admin logged in successfully
+2025-03-22 11:26:32,017 [INFO] 127.0.0.1 - - [22/Mar/2025 11:26:32] "[32mPOST /admin_login HTTP/1.1[0m" 302 -
+2025-03-22 11:26:32,173 [INFO] HTTP Request: GET https://aaluawvcohqfhevkdnuv.supabase.co/rest/v1/attendance?select=%2A%2Cstudents%28name%29&order=created_at.desc&limit=10 "HTTP/2 200 OK"
+2025-03-22 11:26:32,591 [INFO] HTTP Request: GET https://aaluawvcohqfhevkdnuv.supabase.co/rest/v1/qr_tokens?select=%2A&order=created_at.desc&limit=1 "HTTP/2 200 OK"
+2025-03-22 11:26:32,599 [INFO] 127.0.0.1 - - [22/Mar/2025 11:26:32] "GET /admin/dashboard HTTP/1.1" 200 -
+2025-03-22 11:26:32,687 [INFO] QR code generation request. Session: <SecureCookieSession {'_flashes': [('success', 'Login successful!')], 'admin_id': 'admin', 'is_admin': True}>
+2025-03-22 11:26:33,068 [INFO] HTTP Request: POST https://aaluawvcohqfhevkdnuv.supabase.co/rest/v1/qr_tokens "HTTP/2 201 Created"
+2025-03-22 11:26:33,069 [INFO] QR code generated successfully. Token: yAel2UUgK4iF7IqKvoSekYluTHE0wWBhDnFY9EPkqF8
+2025-03-22 11:26:33,070 [INFO] 127.0.0.1 - - [22/Mar/2025 11:26:33] "POST /generate_qr HTTP/1.1" 200 -
+2025-03-22 11:27:20,581 [INFO]  * Detected change in 'C:\\Users\\jigne\\OneDrive\\Desktop\\Resume\\app.py', reloading
+2025-03-22 11:27:20,888 [INFO]  * Restarting with stat
+2025-03-22 11:27:27,165 [INFO] HTTP Request: GET https://aaluawvcohqfhevkdnuv.supabase.co/rest/v1/admins?select=%2A&username=eq.admin "HTTP/2 200 OK"
+2025-03-22 11:27:27,169 [INFO] Checking for admin account: [{'username': 'admin', 'name': 'Administrator', 'password': 'pbkdf2:sha256:600000$vSAIOaRrAOrIJHEp$c0f33c3c1fafb52d3ebbec2c4ffdfe8d1b9cb0f5dcb4822a0f5d16ea1276046b', 'created_at': '2025-03-21T18:40:54.049065+00:00'}]
+2025-03-22 11:27:27,170 [INFO] Updating existing admin account
+2025-03-22 11:27:27,470 [INFO] HTTP Request: PATCH https://aaluawvcohqfhevkdnuv.supabase.co/rest/v1/admins?username=eq.admin "HTTP/2 200 OK"
+2025-03-22 11:27:27,471 [INFO] Admin account updated successfully
+2025-03-22 11:27:27,471 [INFO] Database initialized successfully
+2025-03-22 11:27:27,487 [WARNING]  * Debugger is active!
+2025-03-22 11:27:27,493 [INFO]  * Debugger PIN: 252-252-229
+2025-03-22 11:30:08,913 [INFO] HTTP Request: GET https://aaluawvcohqfhevkdnuv.supabase.co/rest/v1/admins?select=%2A&username=eq.admin "HTTP/2 200 OK"
+2025-03-22 11:30:08,917 [INFO] Checking for admin account: [{'username': 'admin', 'name': 'Administrator', 'password': 'pbkdf2:sha256:600000$TVFDtlFMP7ZuvoDg$b5804da84f2da11449fd2595611d4d70d4429e67571e1d8dc573c70053c824e9', 'created_at': '2025-03-21T18:40:54.049065+00:00'}]
+2025-03-22 11:30:08,917 [INFO] Updating existing admin account
+2025-03-22 11:30:09,251 [INFO] HTTP Request: PATCH https://aaluawvcohqfhevkdnuv.supabase.co/rest/v1/admins?username=eq.admin "HTTP/2 200 OK"
+2025-03-22 11:30:09,253 [INFO] Admin account updated successfully
+2025-03-22 11:30:09,253 [INFO] Database initialized successfully
+2025-03-22 11:30:09,273 [INFO] [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5000
+2025-03-22 11:30:09,273 [INFO] [33mPress CTRL+C to quit[0m
+2025-03-22 11:30:09,275 [INFO]  * Restarting with stat
+2025-03-22 11:30:13,013 [INFO] HTTP Request: GET https://aaluawvcohqfhevkdnuv.supabase.co/rest/v1/admins?select=%2A&username=eq.admin "HTTP/2 200 OK"
+2025-03-22 11:30:13,018 [INFO] Checking for admin account: [{'username': 'admin', 'name': 'Administrator', 'password': 'pbkdf2:sha256:600000$YnwWPow8TxtdxFaq$6e09246057c0853679c9251365af7d2b041e5e46872dd4776080d8aa856de25f', 'created_at': '2025-03-21T18:40:54.049065+00:00'}]
+2025-03-22 11:30:13,018 [INFO] Updating existing admin account
+2025-03-22 11:30:13,392 [INFO] HTTP Request: PATCH https://aaluawvcohqfhevkdnuv.supabase.co/rest/v1/admins?username=eq.admin "HTTP/2 200 OK"
+2025-03-22 11:30:13,394 [INFO] Admin account updated successfully
+2025-03-22 11:30:13,394 [INFO] Database initialized successfully
+2025-03-22 11:30:13,408 [WARNING]  * Debugger is active!
+2025-03-22 11:30:13,414 [INFO]  * Debugger PIN: 252-252-229
+2025-03-22 11:30:31,310 [INFO] 127.0.0.1 - - [22/Mar/2025 11:30:31] "[32mGET / HTTP/1.1[0m" 302 -
+2025-03-22 11:30:31,423 [INFO] 127.0.0.1 - - [22/Mar/2025 11:30:31] "GET /admin_login HTTP/1.1" 200 -
+2025-03-22 11:30:31,603 [INFO] 127.0.0.1 - - [22/Mar/2025 11:30:31] "[33mGET /favicon.ico HTTP/1.1[0m" 404 -
+2025-03-22 11:30:32,983 [INFO] HTTP Request: GET https://aaluawvcohqfhevkdnuv.supabase.co/rest/v1/admins?select=%2A&username=eq.admin "HTTP/2 200 OK"
+2025-03-22 11:30:32,987 [INFO] Admin login attempt for username: admin
+2025-03-22 11:30:32,987 [INFO] Query result: [{'username': 'admin', 'name': 'Administrator', 'password': 'pbkdf2:sha256:600000$T0YZG1MGe13wCf33$5862b68a35712d02c1669dace3d02fbd5b569a9d5fb44978c4763b90119348eb', 'created_at': '2025-03-21T18:40:54.049065+00:00'}]
+2025-03-22 11:30:33,463 [INFO] Admin admin logged in successfully
+2025-03-22 11:30:33,464 [INFO] 127.0.0.1 - - [22/Mar/2025 11:30:33] "[32mPOST /admin_login HTTP/1.1[0m" 302 -
+2025-03-22 11:30:33,881 [INFO] HTTP Request: GET https://aaluawvcohqfhevkdnuv.supabase.co/rest/v1/attendance?select=%2A%2Cstudents%28name%29&order=created_at.desc&limit=10 "HTTP/2 200 OK"
+2025-03-22 11:30:34,015 [INFO] HTTP Request: GET https://aaluawvcohqfhevkdnuv.supabase.co/rest/v1/qr_tokens?select=%2A&order=created_at.desc&limit=1 "HTTP/2 200 OK"
+2025-03-22 11:30:34,019 [INFO] 127.0.0.1 - - [22/Mar/2025 11:30:34] "GET /admin/dashboard HTTP/1.1" 200 -
+2025-03-22 11:30:34,078 [INFO] 127.0.0.1 - - [22/Mar/2025 11:30:34] "[33mGET /get_attendance HTTP/1.1[0m" 404 -
+2025-03-22 11:30:38,753 [INFO] HTTP Request: POST https://aaluawvcohqfhevkdnuv.supabase.co/rest/v1/qr_tokens "HTTP/2 201 Created"
+2025-03-22 11:30:38,846 [INFO] QR code generated successfully. Token: banW8ANSdmhZm_9Y0T8_2_p2ANPOwMJXfOJN5t1zB6I
+2025-03-22 11:30:38,847 [INFO] 127.0.0.1 - - [22/Mar/2025 11:30:38] "POST /generate_qr HTTP/1.1" 200 -
+2025-03-22 11:30:38,965 [INFO] 127.0.0.1 - - [22/Mar/2025 11:30:38] "GET /static/qr_codes/banW8ANSdmhZm_9Y0T8_2_p2ANPOwMJXfOJN5t1zB6I.png HTTP/1.1" 200 -
+2025-03-22 11:31:04,084 [INFO] 127.0.0.1 - - [22/Mar/2025 11:31:04] "[33mGET /get_attendance HTTP/1.1[0m" 404 -
+2025-03-22 11:31:04,251 [INFO] HTTP Request: POST https://aaluawvcohqfhevkdnuv.supabase.co/rest/v1/qr_tokens "HTTP/2 201 Created"
+2025-03-22 11:31:04,281 [INFO] QR code generated successfully. Token: 2KRbwUpsac5dujfNYXcqhTH6mvBVQ3uPn1j3OIP0Duw
+2025-03-22 11:31:04,281 [INFO] 127.0.0.1 - - [22/Mar/2025 11:31:04] "POST /generate_qr HTTP/1.1" 200 -
+2025-03-22 11:31:04,305 [INFO] 127.0.0.1 - - [22/Mar/2025 11:31:04] "GET /static/qr_codes/2KRbwUpsac5dujfNYXcqhTH6mvBVQ3uPn1j3OIP0Duw.png HTTP/1.1" 200 -
+2025-03-22 11:31:05,334 [INFO] HTTP Request: POST https://aaluawvcohqfhevkdnuv.supabase.co/rest/v1/qr_tokens "HTTP/2 201 Created"
+2025-03-22 11:31:05,374 [INFO] QR code generated successfully. Token: stHZjnE5WjVNex2_ipjkzgnexyS7WrwkQdoJw-vswX4
+2025-03-22 11:31:05,375 [INFO] 127.0.0.1 - - [22/Mar/2025 11:31:05] "POST /generate_qr HTTP/1.1" 200 -
+2025-03-22 11:31:05,401 [INFO] 127.0.0.1 - - [22/Mar/2025 11:31:05] "GET /static/qr_codes/stHZjnE5WjVNex2_ipjkzgnexyS7WrwkQdoJw-vswX4.png HTTP/1.1" 200 -
+2025-03-22 11:33:39,095 [INFO]  * Detected change in 'C:\\Users\\jigne\\OneDrive\\Desktop\\Resume\\app.py', reloading
+2025-03-22 11:33:39,126 [INFO]  * Detected change in 'C:\\Users\\jigne\\OneDrive\\Desktop\\Resume\\app.py', reloading
+2025-03-22 11:33:39,386 [INFO]  * Restarting with stat
+2025-03-22 11:33:39,389 [INFO]  * Restarting with stat
+2025-03-22 11:33:46,107 [INFO] HTTP Request: GET https://aaluawvcohqfhevkdnuv.supabase.co/rest/v1/admins?select=%2A&username=eq.admin "HTTP/2 200 OK"
+2025-03-22 11:33:46,113 [INFO] Checking for admin account: [{'username': 'admin', 'name': 'Administrator', 'password': 'pbkdf2:sha256:600000$T0YZG1MGe13wCf33$5862b68a35712d02c1669dace3d02fbd5b569a9d5fb44978c4763b90119348eb', 'created_at': '2025-03-21T18:40:54.049065+00:00'}]
+2025-03-22 11:33:46,114 [INFO] Updating existing admin account
+2025-03-22 11:33:46,244 [INFO] HTTP Request: PATCH https://aaluawvcohqfhevkdnuv.supabase.co/rest/v1/admins?username=eq.admin "HTTP/2 200 OK"
+2025-03-22 11:33:46,246 [INFO] Admin account updated successfully
+2025-03-22 11:33:46,246 [INFO] Database initialized successfully
+2025-03-22 11:33:46,263 [WARNING]  * Debugger is active!
+2025-03-22 11:33:46,268 [INFO]  * Debugger PIN: 252-252-229
+2025-03-22 11:33:47,603 [INFO] HTTP Request: GET https://aaluawvcohqfhevkdnuv.supabase.co/rest/v1/admins?select=%2A&username=eq.admin "HTTP/2 200 OK"
+2025-03-22 11:33:47,607 [INFO] Checking for admin account: [{'username': 'admin', 'name': 'Administrator', 'password': 'pbkdf2:sha256:600000$fK8guk1wViuk9z7E$dd0a14a92ce1041f59062c595681bc7d17398ea45cb20f7ab7475cf3df5013d9', 'created_at': '2025-03-21T18:40:54.049065+00:00'}]
+2025-03-22 11:33:47,607 [INFO] Updating existing admin account
+2025-03-22 11:33:47,857 [INFO] HTTP Request: PATCH https://aaluawvcohqfhevkdnuv.supabase.co/rest/v1/admins?username=eq.admin "HTTP/2 200 OK"
+2025-03-22 11:33:47,862 [INFO] Admin account updated successfully
+2025-03-22 11:33:47,862 [INFO] Database initialized successfully
+2025-03-22 11:33:47,875 [WARNING]  * Debugger is active!
+2025-03-22 11:33:47,881 [INFO]  * Debugger PIN: 252-252-229
+2025-03-22 11:34:32,150 [INFO] HTTP Request: GET https://aaluawvcohqfhevkdnuv.supabase.co/rest/v1/admins?select=%2A&username=eq.admin "HTTP/2 200 OK"
+2025-03-22 11:34:32,156 [INFO] Checking for admin account: [{'username': 'admin', 'name': 'Administrator', 'password': 'pbkdf2:sha256:600000$sDOJxwwDcMVS2RTT$137b55cd43b5e47547339cd322c53767f00db625c79b6ad97f05800a600d3e9d', 'created_at': '2025-03-21T18:40:54.049065+00:00'}]
+2025-03-22 11:34:32,156 [INFO] Updating existing admin account
+2025-03-22 11:34:32,410 [INFO] HTTP Request: PATCH https://aaluawvcohqfhevkdnuv.supabase.co/rest/v1/admins?username=eq.admin "HTTP/2 200 OK"
+2025-03-22 11:34:32,411 [INFO] Admin account updated successfully
+2025-03-22 11:34:32,411 [INFO] Database initialized successfully
+2025-03-22 11:34:32,428 [INFO] [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5000
+2025-03-22 11:34:32,429 [INFO] [33mPress CTRL+C to quit[0m
+2025-03-22 11:34:32,431 [INFO]  * Restarting with stat
+2025-03-22 11:34:36,215 [INFO] HTTP Request: GET https://aaluawvcohqfhevkdnuv.supabase.co/rest/v1/admins?select=%2A&username=eq.admin "HTTP/2 200 OK"
+2025-03-22 11:34:36,222 [INFO] Checking for admin account: [{'username': 'admin', 'name': 'Administrator', 'password': 'pbkdf2:sha256:600000$tA7gBjUfOXamzZAV$14b8d35fd563cd057e44d3e92c684eb8da5d5c1f90e6fbebef3161badbf3bd2b', 'created_at': '2025-03-21T18:40:54.049065+00:00'}]
+2025-03-22 11:34:36,222 [INFO] Updating existing admin account
+2025-03-22 11:34:36,469 [INFO] HTTP Request: PATCH https://aaluawvcohqfhevkdnuv.supabase.co/rest/v1/admins?username=eq.admin "HTTP/2 200 OK"
+2025-03-22 11:34:36,470 [INFO] Admin account updated successfully
+2025-03-22 11:34:36,470 [INFO] Database initialized successfully
+2025-03-22 11:34:36,483 [WARNING]  * Debugger is active!
+2025-03-22 11:34:36,490 [INFO]  * Debugger PIN: 252-252-229
+2025-03-22 11:35:11,983 [INFO]  * Detected change in 'C:\\Users\\jigne\\OneDrive\\Desktop\\Resume\\app.py', reloading
+2025-03-22 11:35:12,205 [INFO]  * Restarting with stat
+2025-03-22 11:35:13,539 [INFO]  * Detected change in 'C:\\Users\\jigne\\OneDrive\\Desktop\\Resume\\app.py', reloading
+2025-03-22 11:35:13,632 [INFO]  * Detected change in 'C:\\Users\\jigne\\OneDrive\\Desktop\\Resume\\app.py', reloading
+2025-03-22 11:35:13,764 [INFO]  * Restarting with stat
+2025-03-22 11:35:13,870 [INFO]  * Restarting with stat
+2025-03-22 11:35:15,451 [INFO] HTTP Request: GET https://aaluawvcohqfhevkdnuv.supabase.co/rest/v1/admins?select=%2A&username=eq.admin "HTTP/2 200 OK"
+2025-03-22 11:35:15,457 [INFO] Checking for admin account: [{'username': 'admin', 'name': 'Administrator', 'password': 'pbkdf2:sha256:600000$s7qfIlRGaEF9kL3X$52e0924e835981aa92671f483bb9ef9bc49909e1c63885bf69376446727c6617', 'created_at': '2025-03-21T18:40:54.049065+00:00'}]
+2025-03-22 11:35:15,457 [INFO] Updating existing admin account
+2025-03-22 11:35:15,591 [INFO] HTTP Request: PATCH https://aaluawvcohqfhevkdnuv.supabase.co/rest/v1/admins?username=eq.admin "HTTP/2 200 OK"
+2025-03-22 11:35:15,592 [INFO] Admin account updated successfully
+2025-03-22 11:35:15,592 [INFO] Database initialized successfully
+2025-03-22 11:35:15,607 [WARNING]  * Debugger is active!
+2025-03-22 11:35:15,613 [INFO]  * Debugger PIN: 252-252-229
+2025-03-22 11:35:17,034 [INFO] HTTP Request: GET https://aaluawvcohqfhevkdnuv.supabase.co/rest/v1/admins?select=%2A&username=eq.admin "HTTP/2 200 OK"
+2025-03-22 11:35:17,040 [INFO] Checking for admin account: [{'username': 'admin', 'name': 'Administrator', 'password': 'pbkdf2:sha256:600000$KCPSoylqY60r5gkh$251d26fb17ebcb6e86052e68be3d055c15bed90e87470a82ef3c6030c2fddba3', 'created_at': '2025-03-21T18:40:54.049065+00:00'}]
+2025-03-22 11:35:17,040 [INFO] Updating existing admin account
+2025-03-22 11:35:17,139 [INFO] HTTP Request: GET https://aaluawvcohqfhevkdnuv.supabase.co/rest/v1/admins?select=%2A&username=eq.admin "HTTP/2 200 OK"
+2025-03-22 11:35:17,142 [INFO] Checking for admin account: [{'username': 'admin', 'name': 'Administrator', 'password': 'pbkdf2:sha256:600000$KCPSoylqY60r5gkh$251d26fb17ebcb6e86052e68be3d055c15bed90e87470a82ef3c6030c2fddba3', 'created_at': '2025-03-21T18:40:54.049065+00:00'}]
+2025-03-22 11:35:17,142 [INFO] Updating existing admin account
+2025-03-22 11:35:17,266 [INFO] HTTP Request: PATCH https://aaluawvcohqfhevkdnuv.supabase.co/rest/v1/admins?username=eq.admin "HTTP/2 200 OK"
+2025-03-22 11:35:17,267 [INFO] Admin account updated successfully
+2025-03-22 11:35:17,267 [INFO] Database initialized successfully
+2025-03-22 11:35:17,276 [WARNING]  * Debugger is active!
+2025-03-22 11:35:17,280 [INFO]  * Debugger PIN: 252-252-229
+2025-03-22 11:35:17,320 [INFO] HTTP Request: PATCH https://aaluawvcohqfhevkdnuv.supabase.co/rest/v1/admins?username=eq.admin "HTTP/2 200 OK"
+2025-03-22 11:35:17,320 [INFO] Admin account updated successfully
+2025-03-22 11:35:17,321 [INFO] Database initialized successfully
+2025-03-22 11:35:17,330 [WARNING]  * Debugger is active!
+2025-03-22 11:35:17,335 [INFO]  * Debugger PIN: 252-252-229
+2025-03-22 11:37:54,528 [INFO] HTTP Request: GET https://aaluawvcohqfhevkdnuv.supabase.co/rest/v1/admins?select=%2A&username=eq.admin "HTTP/2 200 OK"
+2025-03-22 11:37:54,533 [INFO] Checking for admin account: [{'username': 'admin', 'name': 'Administrator', 'password': 'pbkdf2:sha256:600000$KhYyZ3W1W8PXHhdi$6bae11752a4c600b7663dd473a0f89a65bb46820cbc1ee05c70cf3c2ace563bf', 'created_at': '2025-03-21T18:40:54.049065+00:00'}]
+2025-03-22 11:37:54,533 [INFO] Updating existing admin account
+2025-03-22 11:37:54,652 [INFO] HTTP Request: PATCH https://aaluawvcohqfhevkdnuv.supabase.co/rest/v1/admins?username=eq.admin "HTTP/2 200 OK"
+2025-03-22 11:37:54,653 [INFO] Admin account updated successfully
+2025-03-22 11:37:54,653 [INFO] Database initialized successfully
+2025-03-22 11:37:54,672 [INFO] [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5000
+2025-03-22 11:37:54,672 [INFO] [33mPress CTRL+C to quit[0m
+2025-03-22 11:37:54,674 [INFO]  * Restarting with stat
+2025-03-22 11:37:58,045 [INFO] HTTP Request: GET https://aaluawvcohqfhevkdnuv.supabase.co/rest/v1/admins?select=%2A&username=eq.admin "HTTP/2 200 OK"
+2025-03-22 11:37:58,049 [INFO] Checking for admin account: [{'username': 'admin', 'name': 'Administrator', 'password': 'pbkdf2:sha256:600000$Tbxaea9AgJe5taDt$6473d51f014b2ac094aaa3ae939132b536c4d3d30e204a5f90f3110c0f7307e7', 'created_at': '2025-03-21T18:40:54.049065+00:00'}]
+2025-03-22 11:37:58,049 [INFO] Updating existing admin account
+2025-03-22 11:37:58,183 [INFO] HTTP Request: PATCH https://aaluawvcohqfhevkdnuv.supabase.co/rest/v1/admins?username=eq.admin "HTTP/2 200 OK"
+2025-03-22 11:37:58,184 [INFO] Admin account updated successfully
+2025-03-22 11:37:58,185 [INFO] Database initialized successfully
+2025-03-22 11:37:58,197 [WARNING]  * Debugger is active!
+2025-03-22 11:37:58,204 [INFO]  * Debugger PIN: 252-252-229
+2025-03-22 11:38:46,839 [INFO] 127.0.0.1 - - [22/Mar/2025 11:38:46] "[32mGET / HTTP/1.1[0m" 302 -
+2025-03-22 11:38:47,187 [INFO] 127.0.0.1 - - [22/Mar/2025 11:38:47] "GET /admin_login HTTP/1.1" 200 -
+2025-03-22 11:38:47,424 [INFO] 127.0.0.1 - - [22/Mar/2025 11:38:47] "[33mGET /favicon.ico HTTP/1.1[0m" 404 -
+2025-03-22 11:38:50,286 [INFO] HTTP Request: GET https://aaluawvcohqfhevkdnuv.supabase.co/rest/v1/admins?select=%2A&username=eq.admin "HTTP/2 200 OK"
+2025-03-22 11:38:50,289 [INFO] Admin login attempt for username: admin
+2025-03-22 11:38:50,290 [INFO] Query result: [{'username': 'admin', 'name': 'Administrator', 'password': 'pbkdf2:sha256:600000$7LWmj95v6vZdGek7$9477119850a8f6af0c3fb647fe4c1517e7d45bc418acec81de3eff82ecbadcac', 'created_at': '2025-03-21T18:40:54.049065+00:00'}]
+2025-03-22 11:38:50,706 [INFO] Admin admin logged in successfully
+2025-03-22 11:38:50,707 [INFO] 127.0.0.1 - - [22/Mar/2025 11:38:50] "[32mPOST /admin_login HTTP/1.1[0m" 302 -
+2025-03-22 11:38:50,830 [INFO] HTTP Request: GET https://aaluawvcohqfhevkdnuv.supabase.co/rest/v1/attendance?select=%2A%2Cstudents%28name%29&order=created_at.desc&limit=10 "HTTP/2 200 OK"
+2025-03-22 11:38:50,952 [INFO] HTTP Request: GET https://aaluawvcohqfhevkdnuv.supabase.co/rest/v1/qr_tokens?select=%2A&order=created_at.desc&limit=1 "HTTP/2 200 OK"
+2025-03-22 11:38:50,960 [INFO] 127.0.0.1 - - [22/Mar/2025 11:38:50] "GET /admin/dashboard HTTP/1.1" 200 -
+2025-03-22 11:38:51,028 [INFO] 127.0.0.1 - - [22/Mar/2025 11:38:51] "[33mGET /get_attendance HTTP/1.1[0m" 404 -
+2025-03-22 11:38:52,635 [INFO] HTTP Request: POST https://aaluawvcohqfhevkdnuv.supabase.co/rest/v1/qr_tokens "HTTP/2 201 Created"
+2025-03-22 11:38:52,694 [INFO] QR code generated successfully. Token: OaeJNx918LIhLx42rMEFLMwPdlEPL-aNLRV6EvsCKX8
+2025-03-22 11:38:52,695 [INFO] 127.0.0.1 - - [22/Mar/2025 11:38:52] "POST /generate_qr HTTP/1.1" 200 -
+2025-03-22 11:38:52,786 [INFO] 127.0.0.1 - - [22/Mar/2025 11:38:52] "GET /static/qr_codes/OaeJNx918LIhLx42rMEFLMwPdlEPL-aNLRV6EvsCKX8.png HTTP/1.1" 200 -
+2025-03-22 11:39:21,043 [INFO] 127.0.0.1 - - [22/Mar/2025 11:39:21] "[33mGET /get_attendance HTTP/1.1[0m" 404 -
+2025-03-22 11:39:27,885 [INFO] 127.0.0.1 - - [22/Mar/2025 11:39:27] "[32mGET /logout HTTP/1.1[0m" 302 -
+2025-03-22 11:39:27,899 [INFO] 127.0.0.1 - - [22/Mar/2025 11:39:27] "[32mGET / HTTP/1.1[0m" 302 -
+2025-03-22 11:39:27,910 [INFO] 127.0.0.1 - - [22/Mar/2025 11:39:27] "GET /admin_login HTTP/1.1" 200 -
+2025-03-22 11:39:28,962 [INFO] 127.0.0.1 - - [22/Mar/2025 11:39:28] "GET /student/login HTTP/1.1" 200 -
+2025-03-22 11:39:31,622 [INFO] 127.0.0.1 - - [22/Mar/2025 11:39:31] "GET /student/register HTTP/1.1" 200 -
+2025-03-22 11:39:35,470 [INFO] 127.0.0.1 - - [22/Mar/2025 11:39:35] "[32mGET / HTTP/1.1[0m" 302 -
+2025-03-22 11:39:35,482 [INFO] 127.0.0.1 - - [22/Mar/2025 11:39:35] "GET /admin_login HTTP/1.1" 200 -
+2025-03-22 11:39:36,474 [INFO] 127.0.0.1 - - [22/Mar/2025 11:39:36] "GET /student/login HTTP/1.1" 200 -
+2025-03-22 11:39:38,978 [INFO] HTTP Request: GET https://aaluawvcohqfhevkdnuv.supabase.co/rest/v1/students?select=%2A&student_id=eq.admin "HTTP/2 200 OK"
+2025-03-22 11:39:38,983 [INFO] Student login attempt for ID: admin
+2025-03-22 11:39:38,983 [WARNING] No student found with ID admin
+2025-03-22 11:39:38,984 [INFO] 127.0.0.1 - - [22/Mar/2025 11:39:38] "[32mPOST /student/login HTTP/1.1[0m" 302 -
+2025-03-22 11:39:38,993 [INFO] 127.0.0.1 - - [22/Mar/2025 11:39:38] "GET /student/login HTTP/1.1" 200 -
+2025-03-22 11:39:49,442 [INFO] HTTP Request: GET https://aaluawvcohqfhevkdnuv.supabase.co/rest/v1/students?select=%2A&student_id=eq.test "HTTP/2 200 OK"
+2025-03-22 11:39:49,443 [INFO] Student login attempt for ID: test
+2025-03-22 11:39:49,443 [WARNING] No student found with ID test
+2025-03-22 11:39:49,444 [INFO] 127.0.0.1 - - [22/Mar/2025 11:39:49] "[32mPOST /student/login HTTP/1.1[0m" 302 -
+2025-03-22 11:39:49,462 [INFO] 127.0.0.1 - - [22/Mar/2025 11:39:49] "GET /student/login HTTP/1.1" 200 -
+2025-03-22 11:41:18,032 [INFO]  * Detected change in 'C:\\Users\\jigne\\OneDrive\\Desktop\\Resume\\app.py', reloading
+2025-03-22 11:41:18,377 [INFO]  * Restarting with stat
+2025-03-22 11:41:20,297 [INFO]  * Detected change in 'C:\\Users\\jigne\\OneDrive\\Desktop\\Resume\\app.py', reloading
+2025-03-22 11:41:20,581 [INFO]  * Restarting with stat
+2025-03-22 11:41:23,907 [INFO] HTTP Request: GET https://aaluawvcohqfhevkdnuv.supabase.co/rest/v1/admins?select=%2A&username=eq.admin "HTTP/2 200 OK"
+2025-03-22 11:41:23,913 [INFO] Checking for admin account: [{'username': 'admin', 'name': 'Administrator', 'password': 'pbkdf2:sha256:600000$7LWmj95v6vZdGek7$9477119850a8f6af0c3fb647fe4c1517e7d45bc418acec81de3eff82ecbadcac', 'created_at': '2025-03-21T18:40:54.049065+00:00'}]
+2025-03-22 11:41:23,913 [INFO] Updating existing admin account
+2025-03-22 11:41:24,049 [INFO] HTTP Request: PATCH https://aaluawvcohqfhevkdnuv.supabase.co/rest/v1/admins?username=eq.admin "HTTP/2 200 OK"
+2025-03-22 11:41:24,051 [INFO] Admin account updated successfully
+2025-03-22 11:41:24,051 [INFO] Database initialized successfully
+2025-03-22 11:41:24,068 [WARNING]  * Debugger is active!
+2025-03-22 11:41:24,074 [INFO]  * Debugger PIN: 252-252-229
+2025-03-22 11:41:24,976 [INFO] HTTP Request: GET https://aaluawvcohqfhevkdnuv.supabase.co/rest/v1/admins?select=%2A&username=eq.admin "HTTP/2 200 OK"
+2025-03-22 11:41:24,982 [INFO] Checking for admin account: [{'username': 'admin', 'name': 'Administrator', 'password': 'pbkdf2:sha256:600000$dnryxByA8Fi6fWoM$87cc244275a09396444b9a49a93c29fef21b8327c266962985f1f4462d2d2c03', 'created_at': '2025-03-21T18:40:54.049065+00:00'}]
+2025-03-22 11:41:24,982 [INFO] Updating existing admin account
+2025-03-22 11:41:25,117 [INFO] HTTP Request: PATCH https://aaluawvcohqfhevkdnuv.supabase.co/rest/v1/admins?username=eq.admin "HTTP/2 200 OK"
+2025-03-22 11:41:25,118 [INFO] Admin account updated successfully
+2025-03-22 11:41:25,118 [INFO] Database initialized successfully
+2025-03-22 11:41:25,129 [WARNING]  * Debugger is active!
+2025-03-22 11:41:25,136 [INFO]  * Debugger PIN: 252-252-229
+2025-03-22 11:41:27,619 [INFO]  * Detected change in 'C:\\Users\\jigne\\OneDrive\\Desktop\\Resume\\app.py', reloading
+2025-03-22 11:41:27,645 [INFO]  * Detected change in 'C:\\Users\\jigne\\OneDrive\\Desktop\\Resume\\app.py', reloading
+2025-03-22 11:41:27,942 [INFO]  * Restarting with stat
+2025-03-22 11:41:27,987 [INFO]  * Restarting with stat
+2025-03-22 11:41:32,844 [INFO] HTTP Request: GET https://aaluawvcohqfhevkdnuv.supabase.co/rest/v1/admins?select=%2A&username=eq.admin "HTTP/2 200 OK"
+2025-03-22 11:41:32,847 [INFO] HTTP Request: GET https://aaluawvcohqfhevkdnuv.supabase.co/rest/v1/admins?select=%2A&username=eq.admin "HTTP/2 200 OK"
+2025-03-22 11:41:32,849 [INFO] Checking for admin account: [{'username': 'admin', 'name': 'Administrator', 'password': 'pbkdf2:sha256:600000$5tS92ERskUf5Wx6b$21a2a5d97efcc3d2273c31d807867d8494e52c7a4725a077b407274ad0e068c7', 'created_at': '2025-03-21T18:40:54.049065+00:00'}]
+2025-03-22 11:41:32,850 [INFO] Updating existing admin account
+2025-03-22 11:41:32,853 [INFO] Checking for admin account: [{'username': 'admin', 'name': 'Administrator', 'password': 'pbkdf2:sha256:600000$5tS92ERskUf5Wx6b$21a2a5d97efcc3d2273c31d807867d8494e52c7a4725a077b407274ad0e068c7', 'created_at': '2025-03-21T18:40:54.049065+00:00'}]
+2025-03-22 11:41:32,853 [INFO] Updating existing admin account
+2025-03-22 11:41:32,987 [INFO] HTTP Request: PATCH https://aaluawvcohqfhevkdnuv.supabase.co/rest/v1/admins?username=eq.admin "HTTP/2 200 OK"
+2025-03-22 11:41:32,988 [INFO] Admin account updated successfully
+2025-03-22 11:41:32,988 [INFO] Database initialized successfully
+2025-03-22 11:41:33,001 [WARNING]  * Debugger is active!
+2025-03-22 11:41:33,008 [INFO]  * Debugger PIN: 252-252-229
+2025-03-22 11:41:33,089 [INFO] HTTP Request: PATCH https://aaluawvcohqfhevkdnuv.supabase.co/rest/v1/admins?username=eq.admin "HTTP/2 200 OK"
+2025-03-22 11:41:33,091 [INFO] Admin account updated successfully
+2025-03-22 11:41:33,091 [INFO] Database initialized successfully
+2025-03-22 11:41:33,105 [WARNING]  * Debugger is active!
+2025-03-22 11:41:33,112 [INFO]  * Debugger PIN: 252-252-229
+2025-03-22 11:45:37,554 [INFO] HTTP Request: GET https://aaluawvcohqfhevkdnuv.supabase.co/rest/v1/admins?select=%2A&username=eq.admin "HTTP/2 200 OK"
+2025-03-22 11:45:37,558 [INFO] Checking for admin account: [{'username': 'admin', 'name': 'Administrator', 'password': 'pbkdf2:sha256:600000$KHB1RnaJvVvbxCAg$3ae22808e8714496c7a29e811dc3e0b03e16dec1f4d33594209fdfc9a34c8979', 'created_at': '2025-03-21T18:40:54.049065+00:00'}]
+2025-03-22 11:45:37,558 [INFO] Updating existing admin account
+2025-03-22 11:45:37,685 [INFO] HTTP Request: PATCH https://aaluawvcohqfhevkdnuv.supabase.co/rest/v1/admins?username=eq.admin "HTTP/2 200 OK"
+2025-03-22 11:45:37,686 [INFO] Admin account updated successfully
+2025-03-22 11:45:37,686 [INFO] Database initialized successfully
+2025-03-22 11:45:37,702 [INFO] [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5000
+2025-03-22 11:45:37,702 [INFO] [33mPress CTRL+C to quit[0m
+2025-03-22 11:45:37,705 [INFO]  * Restarting with stat
+2025-03-22 11:45:40,826 [INFO] HTTP Request: GET https://aaluawvcohqfhevkdnuv.supabase.co/rest/v1/admins?select=%2A&username=eq.admin "HTTP/2 200 OK"
+2025-03-22 11:45:40,832 [INFO] Checking for admin account: [{'username': 'admin', 'name': 'Administrator', 'password': 'pbkdf2:sha256:600000$6cq2rolM46f91wY8$5cc046e2062df74a84fc3c350eb3cfca71160ff0b92552a714870387bfcddd21', 'created_at': '2025-03-21T18:40:54.049065+00:00'}]
+2025-03-22 11:45:40,832 [INFO] Updating existing admin account
+2025-03-22 11:45:40,966 [INFO] HTTP Request: PATCH https://aaluawvcohqfhevkdnuv.supabase.co/rest/v1/admins?username=eq.admin "HTTP/2 200 OK"
+2025-03-22 11:45:40,967 [INFO] Admin account updated successfully
+2025-03-22 11:45:40,968 [INFO] Database initialized successfully
+2025-03-22 11:45:40,980 [WARNING]  * Debugger is active!
+2025-03-22 11:45:40,986 [INFO]  * Debugger PIN: 252-252-229
+2025-03-22 11:46:16,758 [INFO] 127.0.0.1 - - [22/Mar/2025 11:46:16] "[32mGET / HTTP/1.1[0m" 302 -
+2025-03-22 11:46:16,884 [INFO] 127.0.0.1 - - [22/Mar/2025 11:46:16] "[35m[1mGET /admin/login HTTP/1.1[0m" 500 -
+2025-03-22 11:46:16,991 [INFO] 127.0.0.1 - - [22/Mar/2025 11:46:16] "GET /admin/login?__debugger__=yes&cmd=resource&f=debugger.js HTTP/1.1" 200 -
+2025-03-22 11:46:16,998 [INFO] 127.0.0.1 - - [22/Mar/2025 11:46:16] "GET /admin/login?__debugger__=yes&cmd=resource&f=style.css HTTP/1.1" 200 -
+2025-03-22 11:46:17,044 [INFO] 127.0.0.1 - - [22/Mar/2025 11:46:17] "GET /admin/login?__debugger__=yes&cmd=resource&f=console.png HTTP/1.1" 200 -
+2025-03-22 11:46:17,077 [INFO] 127.0.0.1 - - [22/Mar/2025 11:46:17] "[36mGET /admin/login?__debugger__=yes&cmd=resource&f=console.png HTTP/1.1[0m" 304 -
+2025-03-22 11:48:56,220 [INFO] 127.0.0.1 - - [22/Mar/2025 11:48:56] "[32mGET / HTTP/1.1[0m" 302 -
+2025-03-22 11:48:56,427 [INFO] 127.0.0.1 - - [22/Mar/2025 11:48:56] "[35m[1mGET /admin/login HTTP/1.1[0m" 500 -
+2025-03-22 11:48:56,467 [INFO] 127.0.0.1 - - [22/Mar/2025 11:48:56] "[36mGET /admin/login?__debugger__=yes&cmd=resource&f=style.css HTTP/1.1[0m" 304 -
+2025-03-22 11:48:56,485 [INFO] 127.0.0.1 - - [22/Mar/2025 11:48:56] "[36mGET /admin/login?__debugger__=yes&cmd=resource&f=debugger.js HTTP/1.1[0m" 304 -
+2025-03-22 11:48:56,525 [INFO] 127.0.0.1 - - [22/Mar/2025 11:48:56] "[36mGET /admin/login?__debugger__=yes&cmd=resource&f=console.png HTTP/1.1[0m" 304 -
+2025-03-22 11:53:55,693 [INFO]  * Detected change in 'C:\\Users\\jigne\\OneDrive\\Desktop\\Resume\\app.py', reloading
+2025-03-22 11:53:56,165 [INFO]  * Restarting with stat
+2025-03-22 11:53:56,930 [INFO]  * Detected change in 'C:\\Users\\jigne\\OneDrive\\Desktop\\Resume\\app.py', reloading
+2025-03-22 11:53:57,199 [INFO]  * Restarting with stat
+2025-03-22 11:53:57,851 [INFO]  * Detected change in 'C:\\Users\\jigne\\OneDrive\\Desktop\\Resume\\app.py', reloading
+2025-03-22 11:53:57,975 [INFO]  * Detected change in 'C:\\Users\\jigne\\OneDrive\\Desktop\\Resume\\app.py', reloading
+2025-03-22 11:53:58,198 [INFO]  * Restarting with stat
+2025-03-22 11:53:58,252 [INFO]  * Restarting with stat
+2025-03-22 11:53:58,302 [INFO]  * Detected change in 'C:\\Users\\jigne\\OneDrive\\Desktop\\Resume\\app.py', reloading
+2025-03-22 11:53:58,639 [INFO]  * Restarting with stat
