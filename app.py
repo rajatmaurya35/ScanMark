@@ -64,36 +64,47 @@ def generate_qr():
 
         # Generate unique token
         token = base64.urlsafe_b64encode(os.urandom(16)).decode('utf-8')
-        expires_at = datetime.utcnow() + timedelta(minutes=15)
 
         # Save token to database
-        supabase.table('qr_tokens').insert({
-            'token': token,
-            'session': session_name,
-            'expires_at': expires_at.isoformat()
-        }).execute()
+        try:
+            supabase.table('qr_tokens').insert({
+                'token': token,
+                'session': session_name,
+                'expires_at': datetime.utcnow() + timedelta(minutes=15)
+            }).execute()
+        except Exception as e:
+            logger.error(f"Database error: {str(e)}")
+            return jsonify({'error': 'Failed to save token'}), 500
 
         # Generate QR code
-        qr = qrcode.QRCode(version=1, box_size=10, border=5)
-        attendance_url = f"{request.host_url}mark_attendance/{token}"
-        qr.add_data(attendance_url)
-        qr.make(fit=True)
+        try:
+            qr = qrcode.QRCode(
+                version=1,
+                error_correction=qrcode.constants.ERROR_CORRECT_L,
+                box_size=10,
+                border=4,
+            )
+            attendance_url = f"{request.host_url}mark_attendance/{token}"
+            qr.add_data(attendance_url)
+            qr.make(fit=True)
 
-        # Create QR code image
-        img_buffer = BytesIO()
-        img = qr.make_image(fill_color="black", back_color="white")
-        img.save(img_buffer, format='PNG')
-        img_str = base64.b64encode(img_buffer.getvalue()).decode()
+            # Create QR code image
+            img_buffer = BytesIO()
+            img = qr.make_image(fill_color="black", back_color="white")
+            img.save(img_buffer, format='PNG')
+            img_str = base64.b64encode(img_buffer.getvalue()).decode()
 
-        return jsonify({
-            'qr_code': img_str,
-            'url': attendance_url,
-            'expires_at': expires_at.isoformat()
-        })
+            return jsonify({
+                'qr_code': img_str,
+                'url': attendance_url
+            })
+        except Exception as e:
+            logger.error(f"QR generation error: {str(e)}")
+            return jsonify({'error': 'Failed to generate QR image'}), 500
 
     except Exception as e:
-        logger.error(f"QR generation error: {str(e)}")
-        return jsonify({'error': 'Failed to generate QR code'}), 500
+        logger.error(f"General error: {str(e)}")
+        return jsonify({'error': 'An unexpected error occurred'}), 500
 
 @app.route('/admin/attendance')
 def admin_attendance():
