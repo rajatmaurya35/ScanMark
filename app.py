@@ -4,7 +4,7 @@ import logging
 from io import BytesIO
 import base64
 from datetime import datetime, timedelta
-from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
+from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, send_file
 from werkzeug.security import generate_password_hash, check_password_hash
 from supabase import create_client, Client
 
@@ -188,14 +188,87 @@ def mark_attendance(token):
 @app.route('/admin/attendance')
 def admin_attendance():
     if 'admin_id' not in session:
-        return jsonify({'error': 'Please login first'}), 401
+        return redirect(url_for('admin_login'))
 
     try:
-        result = supabase.table('attendance').select('*').order('created_at', desc=True).limit(10).execute()
-        return jsonify(result.data if result.data else [])
+        # Get today's date at midnight UTC
+        today = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+        
+        # Get all attendance records for today
+        result = supabase.table('attendance')\
+            .select('*')\
+            .gte('created_at', today.isoformat())\
+            .order('created_at', desc=True)\
+            .execute()
+        
+        if not result.data:
+            logger.info("No attendance records found for today")
+            return render_template('admin/attendance.html', records=[])
+
+        # Format the records for display
+        records = []
+        for record in result.data:
+            records.append({
+                'student_id': record['student_id'],
+                'status': record['status'],
+                'time': datetime.fromisoformat(record['created_at'].replace('Z', '+00:00')).strftime('%I:%M %p'),
+                'date': datetime.fromisoformat(record['created_at'].replace('Z', '+00:00')).strftime('%Y-%m-%d')
+            })
+        
+        logger.info(f"Found {len(records)} attendance records")
+        return render_template('admin/attendance.html', records=records)
+        
     except Exception as e:
-        logger.error(f"Error fetching attendance: {str(e)}")
-        return jsonify({'error': 'Failed to fetch attendance records'}), 500
+        logger.error(f"Error fetching attendance records: {str(e)}")
+        return render_template('error.html', message='Failed to fetch attendance records'), 500
+
+@app.route('/admin/download_attendance')
+def download_attendance():
+    if 'admin_id' not in session:
+        return redirect(url_for('admin_login'))
+
+    try:
+        # Get date range from query parameters
+        start_date = request.args.get('start_date')
+        end_date = request.args.get('end_date')
+
+        if not start_date or not end_date:
+            today = datetime.utcnow().date()
+            start_date = today.isoformat()
+            end_date = (today + timedelta(days=1)).isoformat()
+
+        # Query attendance records
+        result = supabase.table('attendance')\
+            .select('*')\
+            .gte('created_at', start_date)\
+            .lt('created_at', end_date)\
+            .order('created_at', desc=True)\
+            .execute()
+
+        if not result.data:
+            return jsonify({'error': 'No records found'}), 404
+
+        # Format as CSV
+        output = BytesIO()
+        output.write(b'Student ID,Date,Time,Status\n')
+        
+        for record in result.data:
+            dt = datetime.fromisoformat(record['created_at'].replace('Z', '+00:00'))
+            line = f"{record['student_id']},{dt.strftime('%Y-%m-%d')},{dt.strftime('%I:%M %p')},{record['status']}\n"
+            output.write(line.encode('utf-8'))
+        
+        output.seek(0)
+        
+        return send_file(
+            output,
+            mimetype='text/csv',
+            as_attachment=True,
+            download_name=f'attendance_{start_date}_{end_date}.csv'
+        )
+
+    except Exception as e:
+        logger.error(f"Error downloading attendance: {str(e)}")
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/register_admin', methods=['GET', 'POST'])
 def register_admin():
