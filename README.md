@@ -1,47 +1,23 @@
-# ScanMark - Smart Attendance System
+# ScanMark - QR Code Attendance System
 
-A modern QR code-based attendance tracking system built with Flask and Supabase.
+A simple and efficient QR code-based attendance system built with Flask and Supabase.
 
 ## Features
 
-- QR Code Based Attendance
+- QR Code Generation for Sessions
+- Mobile-friendly Student Attendance Form
 - Admin Dashboard
-- Secure Token System
 - Real-time Attendance Tracking
-- Mobile-friendly Interface
-
-## Vercel Deployment
-
-1. Fork and Clone:
-   ```bash
-   git clone https://github.com/your-username/ScanMark.git
-   cd ScanMark
-   ```
-
-2. Create Vercel Project:
-   - Go to [Vercel Dashboard](https://vercel.com)
-   - Import your GitHub repository
-   - Choose Python framework preset
-
-3. Configure Environment Variables:
-   - `SUPABASE_URL`: Your Supabase project URL
-   - `SUPABASE_KEY`: Your Supabase anon key
-   - `FLASK_SECRET_KEY`: A secure random string
-
-4. Deploy:
-   ```bash
-   vercel
-   ```
+- Secure Authentication
 
 ## Environment Variables
 
-Required environment variables:
+Create a `.env` file with the following variables:
+
 ```env
-FLASK_ENV=production
-FLASK_APP=app.py
+FLASK_SECRET_KEY=your-secret-key
 SUPABASE_URL=your-supabase-url
-SUPABASE_KEY=your-supabase-key
-FLASK_SECRET_KEY=your-secure-secret
+SUPABASE_KEY=your-supabase-anon-key
 ```
 
 ## Local Development
@@ -51,51 +27,35 @@ FLASK_SECRET_KEY=your-secure-secret
    pip install -r requirements.txt
    ```
 
-2. Set up environment variables:
-   - Create a `.env` file
-   - Add required environment variables
-
-3. Run the app:
+2. Run the development server:
    ```bash
    python app.py
    ```
 
-## Database Schema
+## Deployment on Vercel
 
-1. admins
-   - username (text): Primary key
-   - password_hash (text): Hashed password
-   - created_at (timestamp)
+1. Fork this repository
 
-2. attendance
-   - student_id (text): Foreign key
-   - date (timestamp)
-   - status (text)
-   - created_at (timestamp)
+2. Create a new project on Vercel
+   - Connect your GitHub repository
+   - Set the following environment variables in Vercel:
+     - `FLASK_SECRET_KEY`
+     - `SUPABASE_URL`
+     - `SUPABASE_KEY`
 
-3. qr_tokens
-   - token (text): Primary key
-   - session (text)
-   - created_at (timestamp)
-   - expires_at (timestamp)
+3. Deploy!
+   - Vercel will automatically detect the Python project
+   - The `vercel.json` file handles the configuration
 
-## Testing Progress
+## Database Setup
 
-✅ Admin Authentication
-- Login system working
-- Password hashing implemented
-- Session management secure
+1. Create a new project on Supabase
+2. Run the SQL commands from `schema.sql`
+3. Update your environment variables with Supabase credentials
 
-✅ QR Code Generation
-- Successfully generating QR codes
-- QR codes contain proper URL with token
-- QR codes are refreshed with timestamp
+## Default Admin Login
 
-✅ Attendance Form
-- Form loads correctly
-- Student ID validation working
-- Success/Error pages implemented
+- Username: `admin`
+- Password: `admin123`
 
-## License
-
-MIT License
+**Important:** Change the admin password after first login in production!
