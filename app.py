@@ -1,24 +1,35 @@
 import os
+import base64
 import segno
 import logging
 from io import BytesIO
-import base64
-from datetime import datetime, timedelta
-from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, send_file
-from werkzeug.security import generate_password_hash, check_password_hash
-from supabase import create_client, Client
+from datetime import datetime
+from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
+from werkzeug.security import check_password_hash
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', '5e7f9b7c1a4d3e2b8f6c9a0d5e2f1b4a7890123456789abcdef0123456789ab')
+app.secret_key = os.environ.get('FLASK_SECRET_KEY', '5e7f9b7c1a4d3e2b8f6c9a0d5e2f1b4a7890123456789abcdef0123456789ab')
 
-# Supabase configuration
-SUPABASE_URL = os.environ.get('SUPABASE_URL', 'https://aaluawvcohqfhevkdnuv.supabase.co')
-SUPABASE_KEY = os.environ.get('SUPABASE_KEY', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFhbHVhd3Zjb2hxZmhldmtkbnV2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDIyNzY3MzcsImV4cCI6MjA1Nzg1MjczN30.kKL_B4sw1nwY6lbzgyPHQYoC_uqDsPkT51ZOnhr6MNA')
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+# Google Form URL for attendance
+GOOGLE_FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLSdnEVo2O_Ij6cUwtA4tiVOfG_Gb8Gfd9D4QI2St7wBMdiWkMA/viewform"
+
+# Form field IDs from the Google Form
+FORM_FIELDS = {
+    'name': 'entry.303339851',  # Name field
+    'student_id': 'entry.451434900',  # Student ID field
+    'branch': 'entry.1785981667',  # Branch field
+    'semester': 'entry.771272441',  # Semester field
+    'session': 'entry.1294673448',  # Session name field
+    'faculty': 'entry.13279433'  # Faculty name field
+}
+
+# Admin credentials (in production, use environment variables)
+ADMIN_USERNAME = os.environ.get('ADMIN_USERNAME', 'admin')
+ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'admin123')
 
 @app.route('/')
 def index():
@@ -32,27 +43,27 @@ def admin_login():
         username = request.form.get('username')
         password = request.form.get('password')
         
-        try:
-            result = supabase.table('admins').select('*').eq('username', username).execute()
-            if result.data and check_password_hash(result.data[0]['password_hash'], password):
-                session['admin_id'] = result.data[0]['id']
-                session['username'] = username
-                flash('Login successful!', 'success')
-                return redirect(url_for('admin_dashboard'))
-            else:
-                flash('Invalid username or password', 'danger')
-        except Exception as e:
-            logger.error(f"Login error: {str(e)}")
-            flash('An error occurred during login', 'danger')
+        if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
+            session['admin_id'] = username
+            flash('Login successful!', 'success')
+            return redirect(url_for('admin_dashboard'))
+        else:
+            flash('Invalid username or password', 'danger')
             
-    return render_template('admin_login.html')
+    return render_template('admin/login.html')
 
 @app.route('/admin/dashboard')
 def admin_dashboard():
     if 'admin_id' not in session:
         flash('Please login first', 'danger')
         return redirect(url_for('admin_login'))
-    return render_template('admin_dashboard.html')
+    return render_template('admin/dashboard.html')
+
+@app.route('/admin/logout')
+def admin_logout():
+    session.clear()
+    flash('You have been logged out', 'info')
+    return redirect(url_for('admin_login'))
 
 @app.route('/generate_qr', methods=['POST'])
 def generate_qr():
@@ -61,67 +72,45 @@ def generate_qr():
 
     try:
         session_name = request.form.get('session')
+        faculty_name = request.form.get('faculty', '')
+        branch = request.form.get('branch', '')
+        semester = request.form.get('semester', '')
+
         if not session_name:
             return jsonify({'error': 'Session name is required'}), 400
 
         logger.info(f"Generating QR code for session: {session_name}")
 
-        # Generate unique token and expiry time
-        token = base64.urlsafe_b64encode(os.urandom(16)).decode('utf-8')
-        expires_at = datetime.utcnow() + timedelta(minutes=15)
-
-        # Save token to database
-        try:
-            logger.info("Saving token to database")
-            result = supabase.table('qr_tokens').insert({
-                'token': token,
-                'session': session_name,
-                'created_at': datetime.utcnow().isoformat(),
-                'expires_at': expires_at.isoformat()
-            }).execute()
-            
-            if not result.data:
-                logger.error("Failed to save token to database")
-                return jsonify({'error': 'Failed to save token to database'}), 500
-
-            logger.info("Token saved successfully")
-                
-        except Exception as e:
-            logger.error(f"Database error: {str(e)}")
-            return jsonify({'error': 'Failed to save token to database'}), 500
-
+        # Create pre-filled Google Form URL with session name and faculty
+        form_url = (
+            f"{GOOGLE_FORM_URL}?usp=pp_url"
+            f"&{FORM_FIELDS['session']}={session_name}"
+            f"&{FORM_FIELDS['faculty']}={faculty_name}"
+            f"&{FORM_FIELDS['branch']}={branch}"
+            f"&{FORM_FIELDS['semester']}={semester}"
+        )
+        
         # Generate QR code
         try:
             logger.info("Generating QR code image")
-            
-            # Use the full URL for QR code
-            base_url = request.host_url.rstrip('/')
-            if base_url.startswith('http://'):
-                base_url = base_url.replace('http://', 'https://')
-            attendance_url = f"{base_url}/mark_attendance/{token}"
-
-            # Generate QR code using segno
-            qr = segno.make(attendance_url, micro=False)
+            qr = segno.make(form_url, micro=False)
             buffer = BytesIO()
             qr.save(buffer, kind='png', scale=10, border=4)
             buffer.seek(0)
             img_str = base64.b64encode(buffer.getvalue()).decode()
 
             logger.info("QR code generated successfully")
-            logger.info(f"Attendance URL: {attendance_url}")
             response_data = {
                 'success': True,
                 'qr_code': img_str,
-                'url': attendance_url,
-                'expires_at': expires_at.isoformat()
+                'url': form_url
             }
-            logger.info("Sending response with QR code")
             return jsonify(response_data)
 
         except Exception as e:
             logger.error(f"QR generation error: {str(e)}")
             return jsonify({
-                'error': 'Failed to generate QR code image',
+                'error': 'Failed to generate QR code',
                 'details': str(e)
             }), 500
 
@@ -132,200 +121,14 @@ def generate_qr():
             'details': str(e)
         }), 500
 
-@app.route('/mark_attendance/<token>', methods=['GET', 'POST'])
-def mark_attendance(token):
-    try:
-        # Verify token
-        result = supabase.table('qr_tokens').select('*').eq('token', token).execute()
-        
-        if not result.data:
-            return render_template('error.html', message='Invalid QR code'), 400
-
-        token_data = result.data[0]
-        expires_at = datetime.fromisoformat(token_data['expires_at'].replace('Z', '+00:00'))
-        
-        if expires_at < datetime.utcnow():
-            return render_template('error.html', message='QR code has expired'), 400
-
-        if request.method == 'POST':
-            student_id = request.form.get('student_id')
-            if not student_id:
-                return render_template('attendance_form.html', token=token, error='Student ID is required')
-
-            # Check if attendance already marked
-            existing = supabase.table('attendance').select('*')\
-                .eq('student_id', student_id)\
-                .gte('created_at', datetime.utcnow().date().isoformat())\
-                .execute()
-
-            if existing.data:
-                return render_template('error.html', message='Attendance already marked for today'), 400
-
-            # Mark attendance
-            try:
-                result = supabase.table('attendance').insert({
-                    'student_id': student_id,
-                    'status': 'present',
-                    'created_at': datetime.utcnow().isoformat()
-                }).execute()
-                
-                if not result.data:
-                    return render_template('error.html', message='Failed to mark attendance'), 500
-                    
-                return render_template('success.html', message='Attendance marked successfully!')
-                
-            except Exception as e:
-                logger.error(f"Attendance marking error: {str(e)}")
-                return render_template('error.html', message='Failed to mark attendance'), 500
-
-        # GET request - show the form
-        return render_template('attendance_form.html', token=token)
-
-    except Exception as e:
-        logger.error(f"Error in mark_attendance: {str(e)}")
-        return render_template('error.html', message='An error occurred'), 500
-
-@app.route('/admin/attendance')
-def admin_attendance():
+@app.route('/view_responses')
+def view_responses():
     if 'admin_id' not in session:
+        flash('Please login first', 'danger')
         return redirect(url_for('admin_login'))
-
-    try:
-        # Get today's date at midnight UTC
-        today = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
-        
-        # Get all attendance records for today
-        result = supabase.table('attendance')\
-            .select('*')\
-            .gte('created_at', today.isoformat())\
-            .order('created_at', desc=True)\
-            .execute()
-        
-        if not result.data:
-            logger.info("No attendance records found for today")
-            return render_template('admin/attendance.html', records=[])
-
-        # Format the records for display
-        records = []
-        for record in result.data:
-            records.append({
-                'student_id': record['student_id'],
-                'status': record['status'],
-                'time': datetime.fromisoformat(record['created_at'].replace('Z', '+00:00')).strftime('%I:%M %p'),
-                'date': datetime.fromisoformat(record['created_at'].replace('Z', '+00:00')).strftime('%Y-%m-%d')
-            })
-        
-        logger.info(f"Found {len(records)} attendance records")
-        return render_template('admin/attendance.html', records=records)
-        
-    except Exception as e:
-        logger.error(f"Error fetching attendance records: {str(e)}")
-        return render_template('error.html', message='Failed to fetch attendance records'), 500
-
-@app.route('/admin/download_attendance')
-def download_attendance():
-    if 'admin_id' not in session:
-        return redirect(url_for('admin_login'))
-
-    try:
-        # Get date range from query parameters
-        start_date = request.args.get('start_date')
-        end_date = request.args.get('end_date')
-
-        if not start_date or not end_date:
-            today = datetime.utcnow().date()
-            start_date = today.isoformat()
-            end_date = (today + timedelta(days=1)).isoformat()
-
-        # Query attendance records
-        result = supabase.table('attendance')\
-            .select('*')\
-            .gte('created_at', start_date)\
-            .lt('created_at', end_date)\
-            .order('created_at', desc=True)\
-            .execute()
-
-        if not result.data:
-            return jsonify({'error': 'No records found'}), 404
-
-        # Format as CSV
-        output = BytesIO()
-        output.write(b'Student ID,Date,Time,Status\n')
-        
-        for record in result.data:
-            dt = datetime.fromisoformat(record['created_at'].replace('Z', '+00:00'))
-            line = f"{record['student_id']},{dt.strftime('%Y-%m-%d')},{dt.strftime('%I:%M %p')},{record['status']}\n"
-            output.write(line.encode('utf-8'))
-        
-        output.seek(0)
-        
-        return send_file(
-            output,
-            mimetype='text/csv',
-            as_attachment=True,
-            download_name=f'attendance_{start_date}_{end_date}.csv'
-        )
-
-    except Exception as e:
-        logger.error(f"Error downloading attendance: {str(e)}")
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/register_admin', methods=['GET', 'POST'])
-def register_admin():
-    if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
-        confirm_password = request.form.get('confirm_password')
-        
-        if not username or not password or not confirm_password:
-            flash('All fields are required', 'danger')
-            return redirect(url_for('register_admin'))
-            
-        if password != confirm_password:
-            flash('Passwords do not match', 'danger')
-            return redirect(url_for('register_admin'))
-            
-        try:
-            # Check if username already exists
-            result = supabase.table('admins').select('*').eq('username', username).execute()
-            if result.data:
-                flash('Username already exists', 'danger')
-                return redirect(url_for('register_admin'))
-                
-            # Hash password and create new admin
-            password_hash = generate_password_hash(password)
-            result = supabase.table('admins').insert({
-                'username': username,
-                'password_hash': password_hash
-            }).execute()
-            
-            if not result.data:
-                raise Exception("Failed to create admin account")
-                
-            flash('Registration successful! Please login.', 'success')
-            return redirect(url_for('admin_login'))
-            
-        except Exception as e:
-            logger.error(f"Registration error: {str(e)}")
-            flash('An error occurred during registration', 'danger')
-            return redirect(url_for('register_admin'))
-        
-    return render_template('register_admin.html')
-
-@app.route('/logout')
-def logout():
-    session.clear()
-    flash('You have been logged out', 'info')
-    return redirect(url_for('admin_login'))
-
-@app.errorhandler(404)
-def not_found_error(error):
-    return render_template('error.html', message="Page not found"), 404
-
-@app.errorhandler(500)
-def internal_error(error):
-    logger.error(f"Server error: {str(error)}")
-    return render_template('error.html', message="Internal server error"), 500
+    
+    # Redirect to the Google Sheets responses
+    return redirect('https://docs.google.com/spreadsheets/d/1ZcsaJ9CDLkm7T0q9x0xqiV4J1RYIK8WKB0Ff_21NYaA/edit?usp=sharing')
 
 if __name__ == '__main__':
     app.run(debug=True)
