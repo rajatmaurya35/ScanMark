@@ -6,6 +6,7 @@ from io import BytesIO
 from datetime import datetime
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
 from werkzeug.security import check_password_hash
+from urllib.parse import quote
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -81,19 +82,25 @@ def generate_qr():
 
         logger.info(f"Generating QR code for session: {session_name}")
 
+        # URL encode the parameters to handle special characters
+        encoded_session = quote(session_name)
+        encoded_faculty = quote(faculty_name)
+        encoded_branch = quote(branch)
+        encoded_semester = quote(semester)
+
         # Create pre-filled Google Form URL with session name and faculty
         form_url = (
             f"{GOOGLE_FORM_URL}?usp=pp_url"
-            f"&{FORM_FIELDS['session']}={session_name}"
-            f"&{FORM_FIELDS['faculty']}={faculty_name}"
-            f"&{FORM_FIELDS['branch']}={branch}"
-            f"&{FORM_FIELDS['semester']}={semester}"
+            f"&{FORM_FIELDS['session']}={encoded_session}"
+            f"&{FORM_FIELDS['faculty']}={encoded_faculty}"
+            f"&{FORM_FIELDS['branch']}={encoded_branch}"
+            f"&{FORM_FIELDS['semester']}={encoded_semester}"
         )
         
-        # Generate QR code
+        # Generate QR code with error correction level Q (25%) for better scanning
         try:
             logger.info("Generating QR code image")
-            qr = segno.make(form_url, micro=False)
+            qr = segno.make(form_url, error='Q', micro=False)
             buffer = BytesIO()
             qr.save(buffer, kind='png', scale=10, border=4)
             buffer.seek(0)
