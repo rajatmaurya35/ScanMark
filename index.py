@@ -1,10 +1,9 @@
+from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
 import os
 import base64
 import segno
 import logging
 from io import BytesIO
-from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
-from werkzeug.security import check_password_hash
 from urllib.parse import quote
 
 # Configure logging
@@ -143,6 +142,3 @@ def not_found_error(error):
 @app.errorhandler(500)
 def internal_error(error):
     return render_template('error.html', error="Internal server error"), 500
-
-if __name__ == '__main__':
-    app.run(debug=True)
