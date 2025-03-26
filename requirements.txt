@@ -1,3 +1,1 @@
 Flask==2.0.1
-Werkzeug==2.0.1
-segno==1.5.2
