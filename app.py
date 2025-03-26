@@ -3,7 +3,6 @@ import base64
 import segno
 import logging
 from io import BytesIO
-from datetime import datetime
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
 from werkzeug.security import check_password_hash
 from urllib.parse import quote
@@ -144,13 +143,6 @@ def not_found_error(error):
 @app.errorhandler(500)
 def internal_error(error):
     return render_template('error.html', error="Internal server error"), 500
-
-# For Vercel serverless deployment
-app.wsgi_app = app.wsgi_app
-
-# Vercel handler
-def application(environ, start_response):
-    return app(environ, start_response)
 
 if __name__ == '__main__':
     app.run(debug=True)
