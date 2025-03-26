@@ -22,8 +22,9 @@ wheels/
 
 # Virtual Environment
 venv/
-env/
 ENV/
+env/
+.env
 
 # IDE
 .idea/
@@ -31,20 +32,16 @@ ENV/
 *.swp
 *.swo
 
-# Environment variables
-.env
-.env.local
-
-# Logs
-*.log
-
-# Database
-*.db
-*.sqlite3
+# Flask
+instance/
+.webassets-cache
+app.log
 
 # Vercel
-.vercel/
+.vercel
+.now
 
-# Other
+# OS
 .DS_Store
-node_modules/
+Thumbs.db
+desktop.ini
