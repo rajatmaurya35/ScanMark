@@ -8,17 +8,15 @@ from urllib.parse import quote
 app = Flask(__name__)
 app.secret_key = '5e7f9b7c1a4d3e2b8f6c9a0d5e2f1b4a7890123456789abcdef0123456789ab'
 
-# Google Form URL for attendance (using the existing form)
-GOOGLE_FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLSdnEVo2O_Ij6cUwtA4tiVOfG_Gb8Gfd9D4QI2St7wBMdiWkMA/formResponse"
+# Your existing Google Form URL
+GOOGLE_FORM_URL = "https://docs.google.com/forms/d/1FAIpQLSdnEVo2O_Ij6cUwtA4tiVOfG_Gb8Gfd9D4QI2St7wBMdiWkMA/viewform"
 
-# Form field IDs from the existing form
+# Form field IDs from your form
 FORM_FIELDS = {
-    'name': 'entry.303339851',
-    'student_id': 'entry.451434900',
-    'branch': 'entry.1785981667',
-    'semester': 'entry.771272441',
     'session': 'entry.1294673448',
-    'faculty': 'entry.13279433'
+    'faculty': 'entry.13279433',
+    'branch': 'entry.1785981667',
+    'semester': 'entry.771272441'
 }
 
 # Admin credentials
@@ -73,8 +71,8 @@ def generate_qr():
         if not session_name:
             return jsonify({'error': 'Session name is required'}), 400
 
-        # Create the form URL with proper prefilling
-        form_url = GOOGLE_FORM_URL.replace('formResponse', 'viewform') + '?'
+        # Build the form URL with prefilled values
+        form_url = f"{GOOGLE_FORM_URL}?"
         
         # Add form fields
         params = []
@@ -113,7 +111,7 @@ def view_responses():
     if 'admin_id' not in session:
         flash('Please login first', 'danger')
         return redirect(url_for('admin_login'))
-    # Link to the Google Sheet with responses
+    # Link to your Google Sheet with responses
     return redirect('https://docs.google.com/spreadsheets/d/1ZcsaJ9CDLkm7T0q9x0xqiV4J1RYIK8WKB0Ff_21NYaA/edit?usp=sharing')
 
 if __name__ == '__main__':
