@@ -9,7 +9,7 @@ app = Flask(__name__)
 app.secret_key = '5e7f9b7c1a4d3e2b8f6c9a0d5e2f1b4a7890123456789abcdef0123456789ab'
 
 # Google Form URL for attendance (using the existing form)
-GOOGLE_FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLSdnEVo2O_Ij6cUwtA4tiVOfG_Gb8Gfd9D4QI2St7wBMdiWkMA/viewform"
+GOOGLE_FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLSdnEVo2O_Ij6cUwtA4tiVOfG_Gb8Gfd9D4QI2St7wBMdiWkMA/formResponse"
 
 # Form field IDs from the existing form
 FORM_FIELDS = {
@@ -73,18 +73,21 @@ def generate_qr():
         if not session_name:
             return jsonify({'error': 'Session name is required'}), 400
 
-        # Build the form URL with prefilled values
-        form_url = f"{GOOGLE_FORM_URL}?usp=sf_link"
+        # Create the form URL with proper prefilling
+        form_url = GOOGLE_FORM_URL.replace('formResponse', 'viewform') + '?'
         
         # Add form fields
+        params = []
         if session_name:
-            form_url += f"&{FORM_FIELDS['session']}={quote(session_name)}"
+            params.append(f"{FORM_FIELDS['session']}={quote(session_name)}")
         if faculty_name:
-            form_url += f"&{FORM_FIELDS['faculty']}={quote(faculty_name)}"
+            params.append(f"{FORM_FIELDS['faculty']}={quote(faculty_name)}")
         if branch:
-            form_url += f"&{FORM_FIELDS['branch']}={quote(branch)}"
+            params.append(f"{FORM_FIELDS['branch']}={quote(branch)}")
         if semester:
-            form_url += f"&{FORM_FIELDS['semester']}={quote(semester)}"
+            params.append(f"{FORM_FIELDS['semester']}={quote(semester)}")
+        
+        form_url += '&'.join(params)
         
         # Generate QR code
         qr = segno.make(form_url, error='Q', micro=False)
