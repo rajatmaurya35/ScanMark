@@ -46,7 +46,7 @@
                 <span class="logo-text">ScanMark</span>
             </a>
             <div class="d-flex">
-                <a href="{{ url_for('view_responses') }}" class="btn btn-outline-primary me-2">View Responses</a>
+                <a href="{{ url_for('view_responses') }}" class="btn btn-outline-primary me-2" target="_blank">View Responses</a>
                 <a href="{{ url_for('admin_logout') }}" class="btn btn-outline-danger">Logout</a>
             </div>
         </div>
@@ -71,22 +71,67 @@
                         {% endwith %}
 
                         <form id="qrForm">
-                            <div class="mb-3">
-                                <label for="session" class="form-label">Session Name*</label>
-                                <input type="text" class="form-control" id="session" name="session" required 
-                                       placeholder="Enter session name (e.g., Morning Lecture - March 26)">
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="session" class="form-label">Session Name*</label>
+                                    <input type="text" class="form-control" id="session" name="session" required
+                                           placeholder="Enter session name">
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="faculty" class="form-label">Faculty Name</label>
+                                    <input type="text" class="form-control" id="faculty" name="faculty"
+                                           placeholder="Enter faculty name">
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="branch" class="form-label">Branch</label>
+                                    <select class="form-select" id="branch" name="branch">
+                                        <option value="">Select Branch</option>
+                                        <option value="Computer Science">Computer Science</option>
+                                        <option value="Information Technology">Information Technology</option>
+                                        <option value="Electronics">Electronics</option>
+                                        <option value="Mechanical">Mechanical</option>
+                                        <option value="Civil">Civil</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="semester" class="form-label">Semester</label>
+                                    <select class="form-select" id="semester" name="semester">
+                                        <option value="">Select Semester</option>
+                                        <option value="1st">1st Semester</option>
+                                        <option value="2nd">2nd Semester</option>
+                                        <option value="3rd">3rd Semester</option>
+                                        <option value="4th">4th Semester</option>
+                                        <option value="5th">5th Semester</option>
+                                        <option value="6th">6th Semester</option>
+                                        <option value="7th">7th Semester</option>
+                                        <option value="8th">8th Semester</option>
+                                    </select>
+                                </div>
                             </div>
                             <button type="submit" class="btn btn-primary w-100">Generate QR Code</button>
                         </form>
 
                         <div id="qrResult" class="mt-4 text-center" style="display: none;">
-                            <img id="qrCode" class="img-fluid mb-3" alt="QR Code">
+                            <div class="alert alert-info mb-3">
+                                Students can scan this QR code to mark their attendance
+                            </div>
+                            <img id="qrCode" class="img-fluid mb-3 border p-2" alt="QR Code">
                             <div>
-                                <a id="downloadBtn" class="btn btn-success me-2" download="qr-code.png">
+                                <a id="downloadBtn" class="btn btn-success me-2" download="attendance-qr.png">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-download me-1" viewBox="0 0 16 16">
+                                        <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5"/>
+                                        <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
+                                    </svg>
                                     Download QR Code
                                 </a>
                                 <a id="formLink" class="btn btn-info" target="_blank">
-                                    Open Form
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-box-arrow-up-right me-1" viewBox="0 0 16 16">
+                                        <path fill-rule="evenodd" d="M8.636 3.5a.5.5 0 0 0-.5-.5H1.5A1.5 1.5 0 0 0 0 4.5v10A1.5 1.5 0 0 0 1.5 16h10a1.5 1.5 0 0 0 1.5-1.5V7.864a.5.5 0 0 0-1 0V14.5a.5.5 0 0 1-.5.5h-10a.5.5 0 0 1-.5-.5v-10a.5.5 0 0 1 .5-.5h6.636a.5.5 0 0 0 .5-.5"/>
+                                        <path fill-rule="evenodd" d="M16 .5a.5.5 0 0 0-.5-.5h-5a.5.5 0 0 0 0 1h3.793L6.146 9.146a.5.5 0 1 0 .708.708L15 1.707V5.5a.5.5 0 0 0 1 0z"/>
+                                    </svg>
+                                    Test Form
                                 </a>
                             </div>
                         </div>
@@ -121,6 +166,7 @@
                     formLink.href = data.url;
                     
                     qrResult.style.display = 'block';
+                    qrResult.scrollIntoView({ behavior: 'smooth' });
                 } else {
                     alert(data.error || 'Failed to generate QR code');
                 }

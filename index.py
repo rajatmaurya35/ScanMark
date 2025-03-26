@@ -8,13 +8,17 @@ from urllib.parse import quote
 app = Flask(__name__)
 app.secret_key = '5e7f9b7c1a4d3e2b8f6c9a0d5e2f1b4a7890123456789abcdef0123456789ab'
 
-# Use a verified working Google Form
-GOOGLE_FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLSc5_9Jm-6e5Ck_TpwE0j7tGfPHE7_Vr_3yWYnFKEqtKDxNRtw/viewform"
+# Google Form URL for attendance (using the existing form)
+GOOGLE_FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLSdnEVo2O_Ij6cUwtA4tiVOfG_Gb8Gfd9D4QI2St7wBMdiWkMA/viewform"
 
-# Verified form field IDs
+# Form field IDs from the existing form
 FORM_FIELDS = {
-    'student_id': 'entry.1234567890',  # Student ID field
-    'session': 'entry.1478963250',     # Session Name field
+    'name': 'entry.303339851',
+    'student_id': 'entry.451434900',
+    'branch': 'entry.1785981667',
+    'semester': 'entry.771272441',
+    'session': 'entry.1294673448',
+    'faculty': 'entry.13279433'
 }
 
 # Admin credentials
@@ -62,11 +66,25 @@ def generate_qr():
 
     try:
         session_name = request.form.get('session')
+        faculty_name = request.form.get('faculty', '')
+        branch = request.form.get('branch', '')
+        semester = request.form.get('semester', '')
+
         if not session_name:
             return jsonify({'error': 'Session name is required'}), 400
 
-        # Create a simpler form URL with just session name
-        form_url = f"{GOOGLE_FORM_URL}?usp=pp_url&{FORM_FIELDS['session']}={quote(session_name)}"
+        # Build the form URL with prefilled values
+        form_url = f"{GOOGLE_FORM_URL}?usp=sf_link"
+        
+        # Add form fields
+        if session_name:
+            form_url += f"&{FORM_FIELDS['session']}={quote(session_name)}"
+        if faculty_name:
+            form_url += f"&{FORM_FIELDS['faculty']}={quote(faculty_name)}"
+        if branch:
+            form_url += f"&{FORM_FIELDS['branch']}={quote(branch)}"
+        if semester:
+            form_url += f"&{FORM_FIELDS['semester']}={quote(semester)}"
         
         # Generate QR code
         qr = segno.make(form_url, error='Q', micro=False)
@@ -92,8 +110,8 @@ def view_responses():
     if 'admin_id' not in session:
         flash('Please login first', 'danger')
         return redirect(url_for('admin_login'))
-    # Use the responses spreadsheet URL
-    return redirect('https://docs.google.com/spreadsheets/d/1-test-responses-sheet/edit?usp=sharing')
+    # Link to the Google Sheet with responses
+    return redirect('https://docs.google.com/spreadsheets/d/1ZcsaJ9CDLkm7T0q9x0xqiV4J1RYIK8WKB0Ff_21NYaA/edit?usp=sharing')
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
