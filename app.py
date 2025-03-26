@@ -137,7 +137,6 @@ def view_responses():
     # Redirect to the Google Sheets responses
     return redirect('https://docs.google.com/spreadsheets/d/1ZcsaJ9CDLkm7T0q9x0xqiV4J1RYIK8WKB0Ff_21NYaA/edit?usp=sharing')
 
-# Error handlers
 @app.errorhandler(404)
 def not_found_error(error):
     return render_template('error.html', error="Page not found"), 404
@@ -146,8 +145,12 @@ def not_found_error(error):
 def internal_error(error):
     return render_template('error.html', error="Internal server error"), 500
 
-# For Vercel deployment
+# For Vercel serverless deployment
 app.wsgi_app = app.wsgi_app
+
+# Vercel handler
+def application(environ, start_response):
+    return app(environ, start_response)
 
 if __name__ == '__main__':
     app.run(debug=True)
