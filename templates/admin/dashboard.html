@@ -3,137 +3,217 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard - ScanMark</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <title>ScanMark - Admin Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
+        :root {
+            --primary-color: #4CAF50;
+            --secondary-color: #2196F3;
+            --accent-color: #FF9800;
+            --background-color: #f8f9fa;
+        }
+
         body {
-            background-color: #f5f6fa;
+            background-color: var(--background-color);
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
             min-height: 100vh;
-            padding-top: 1rem;
         }
+
         .navbar {
-            background-color: white;
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            padding: 0.5rem;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            margin-bottom: 2rem;
         }
-        .logo-text {
-            color: #6c5ce7;
-            font-size: 1.5rem;
-            font-weight: 600;
+
+        .navbar-brand {
+            font-size: 1.25rem;
+            color: white !important;
         }
+
         .card {
             border: none;
-            border-radius: 15px;
-            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-bottom: 1rem;
         }
-        #qrCode {
-            max-width: 300px;
-            margin: 0 auto;
+
+        .card-header {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            border-radius: 10px 10px 0 0;
+            padding: 1rem;
         }
+
+        .btn {
+            border-radius: 5px;
+            padding: 0.5rem 1rem;
+            font-weight: 500;
+        }
+
         .btn-primary {
-            background: #6c5ce7;
+            background: var(--primary-color);
             border: none;
         }
-        .btn-primary:hover {
-            background: #5b4ecc;
+
+        .btn-info {
+            background: var(--secondary-color);
+            border: none;
+            color: white;
+        }
+
+        .form-control {
+            border-radius: 5px;
+            padding: 0.5rem;
+            border: 1px solid #ddd;
+        }
+
+        .form-control:focus {
+            border-color: var(--primary-color);
+            box-shadow: none;
+        }
+
+        #qrCode {
+            max-width: 300px;
+            margin: 1rem auto;
+            display: block;
+        }
+
+        .qr-container {
+            text-align: center;
+            margin: 1rem 0;
+            display: none;
+        }
+
+        .qr-url {
+            word-break: break-all;
+            margin-top: 1rem;
+            padding: 0.5rem;
+            background: #f8f9fa;
+            border-radius: 5px;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 1rem;
+        }
+
+        .loading i {
+            font-size: 1.5rem;
+            color: var(--primary-color);
+        }
+
+        .session-card {
+            transition: all 0.3s ease;
+        }
+
+        .session-card.expired {
+            opacity: 0.7;
+        }
+
+        .countdown {
+            font-size: 0.9rem;
+            color: #666;
+        }
+
+        .required-field::after {
+            content: '*';
+            color: red;
+            margin-left: 4px;
         }
     </style>
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-light">
+    <nav class="navbar navbar-expand-lg navbar-dark mb-3">
         <div class="container">
             <a class="navbar-brand" href="#">
-                <span class="logo-text">ScanMark</span>
+                <i class="fas fa-qrcode"></i> ScanMark
             </a>
-            <div class="d-flex">
-                <a href="{{ url_for('view_responses') }}" class="btn btn-outline-primary me-2" target="_blank">View Responses</a>
-                <a href="{{ url_for('admin_logout') }}" class="btn btn-outline-danger">Logout</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('admin_dashboard') }}">
+                            <i class="fas fa-home"></i> Dashboard
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('admin_logout') }}">
+                            <i class="fas fa-sign-out-alt"></i> Logout
+                        </a>
+                    </li>
+                </ul>
             </div>
         </div>
     </nav>
 
-    <div class="container">
-        <div class="row justify-content-center">
-            <div class="col-md-8">
-                <div class="card">
-                    <div class="card-body p-4">
-                        <h4 class="card-title mb-4">Generate QR Code</h4>
-                        
-                        {% with messages = get_flashed_messages(with_categories=true) %}
-                            {% if messages %}
-                                {% for category, message in messages %}
-                                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-                                        {{ message }}
-                                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                                    </div>
-                                {% endfor %}
-                            {% endif %}
-                        {% endwith %}
+    <div class="container mt-4">
+        <div class="row">
+            <div class="col-12">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h2>Admin Dashboard</h2>
+                    <div>
+                        <button type="button" class="btn btn-primary me-2" data-bs-toggle="modal" data-bs-target="#qrModal">
+                            <i class="fas fa-qrcode me-2"></i>Generate QR Code
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
 
-                        <form id="qrForm">
-                            <div class="row">
-                                <div class="col-md-6 mb-3">
-                                    <label for="session" class="form-label">Session Name*</label>
-                                    <input type="text" class="form-control" id="session" name="session" required
-                                           placeholder="Enter session name">
-                                </div>
-                                <div class="col-md-6 mb-3">
-                                    <label for="faculty" class="form-label">Faculty Name</label>
-                                    <input type="text" class="form-control" id="faculty" name="faculty"
-                                           placeholder="Enter faculty name">
-                                </div>
-                            </div>
-                            <div class="row">
-                                <div class="col-md-6 mb-3">
-                                    <label for="branch" class="form-label">Branch</label>
-                                    <select class="form-select" id="branch" name="branch">
-                                        <option value="">Select Branch</option>
-                                        <option value="Computer Science">Computer Science</option>
-                                        <option value="Information Technology">Information Technology</option>
-                                        <option value="Electronics">Electronics</option>
-                                        <option value="Mechanical">Mechanical</option>
-                                        <option value="Civil">Civil</option>
-                                    </select>
-                                </div>
-                                <div class="col-md-6 mb-3">
-                                    <label for="semester" class="form-label">Semester</label>
-                                    <select class="form-select" id="semester" name="semester">
-                                        <option value="">Select Semester</option>
-                                        <option value="1">1st Semester</option>
-                                        <option value="2">2nd Semester</option>
-                                        <option value="3">3rd Semester</option>
-                                        <option value="4">4th Semester</option>
-                                        <option value="5">5th Semester</option>
-                                        <option value="6">6th Semester</option>
-                                        <option value="7">7th Semester</option>
-                                        <option value="8">8th Semester</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <button type="submit" class="btn btn-primary w-100">Generate QR Code</button>
-                        </form>
-
-                        <div id="qrResult" class="mt-4 text-center" style="display: none;">
-                            <div class="alert alert-info mb-3">
-                                Students can scan this QR code to mark their attendance
-                            </div>
-                            <img id="qrCode" class="img-fluid mb-3 border p-2" alt="QR Code">
-                            <div>
-                                <a id="downloadBtn" class="btn btn-success me-2" download="attendance-qr.png">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-download me-1" viewBox="0 0 16 16">
-                                        <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5"/>
-                                        <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
-                                    </svg>
-                                    Download QR Code
-                                </a>
-                                <a id="formLink" class="btn btn-info" target="_blank">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-box-arrow-up-right me-1" viewBox="0 0 16 16">
-                                        <path fill-rule="evenodd" d="M8.636 3.5a.5.5 0 0 0-.5-.5H1.5A1.5 1.5 0 0 0 0 4.5v10A1.5 1.5 0 0 0 1.5 16h10a1.5 1.5 0 0 0 1.5-1.5V7.864a.5.5 0 0 0-1 0V14.5a.5.5 0 0 1-.5.5h-10a.5.5 0 0 1-.5-.5v-10a.5.5 0 0 1 .5-.5h6.636a.5.5 0 0 0 .5-.5"/>
-                                        <path fill-rule="evenodd" d="M16 .5a.5.5 0 0 0-.5-.5h-5a.5.5 0 0 0 0 1h3.793L6.146 9.146a.5.5 0 1 0 .708.708L15 1.707V5.5a.5.5 0 0 0 1 0z"/>
-                                    </svg>
-                                    Test Form
-                                </a>
-                            </div>
+        <!-- Active Sessions -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card shadow-sm">
+                    <div class="card-header">
+                        <h5 class="mb-0 text-white">Active Sessions</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Session</th>
+                                        <th>Faculty</th>
+                                        <th>Branch</th>
+                                        <th>Semester</th>
+                                        <th>Status</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="sessionsTable">
+                                    {% for session in sessions %}
+                                    <tr id="session-{{ session.id }}">
+                                        <td>{{ session.name }}</td>
+                                        <td>{{ session.faculty }}</td>
+                                        <td>{{ session.branch }}</td>
+                                        <td>{{ session.semester }}</td>
+                                        <td>
+                                            <span class="badge {% if session.active %}bg-success{% else %}bg-danger{% endif %}">
+                                                {{ 'Active' if session.active else 'Inactive' }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <button class="btn btn-sm btn-info me-1" onclick="showQR('{{ session.id }}', '{{ session.qr_code }}', '{{ session.form_url }}')">
+                                                <i class="fas fa-qrcode"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-warning me-1" onclick="toggleSession('{{ session.id }}')">
+                                                <i class="fas fa-power-off"></i>
+                                            </button>
+                                            <a href="{{ url_for('view_responses', session_id=session.id) }}" class="btn btn-sm btn-success me-1">
+                                                <i class="fas fa-table"></i>
+                                            </a>
+                                            <button class="btn btn-sm btn-danger" onclick="deleteSession('{{ session.id }}')">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
@@ -141,39 +221,171 @@
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- QR Code Generation Modal -->
+    <div class="modal fade" id="qrModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Generate QR Code</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="qrForm" onsubmit="generateQR(event)">
+                        <div class="mb-3">
+                            <label for="name" class="form-label required-field">Session Name</label>
+                            <input type="text" class="form-control" id="name" name="name" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="faculty" class="form-label required-field">Faculty Name</label>
+                            <input type="text" class="form-control" id="faculty" name="faculty" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="branch" class="form-label required-field">Branch</label>
+                            <input type="text" class="form-control" id="branch" name="branch" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="semester" class="form-label required-field">Semester</label>
+                            <input type="text" class="form-control" id="semester" name="semester" required>
+                        </div>
+                        <div class="loading">
+                            <i class="fas fa-spinner fa-spin"></i>
+                            <p>Generating QR Code...</p>
+                        </div>
+                        <div class="qr-container">
+                            <img id="qrCode" src="" alt="QR Code">
+                            <p class="qr-url"></p>
+                        </div>
+                        <div class="text-end">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                            <button type="submit" class="btn btn-primary">Generate</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- QR Code Display Modal -->
+    <div class="modal fade" id="qrDisplayModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header" style="background: linear-gradient(135deg, var(--primary-color), var(--secondary-color)); color: white;">
+                    <h5 class="modal-title">Session QR Code</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body text-center p-4">
+                    <div id="qrError" class="alert alert-danger d-none">
+                        Failed to load QR code. Please try again.
+                    </div>
+                    <div id="qrContainer">
+                        <img id="displayQrCode" src="" alt="QR Code" class="img-fluid mb-3" style="max-width: 300px;">
+                        <div id="displayQrUrl" class="mt-3"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        document.getElementById('qrForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
+        async function generateQR(event) {
+            event.preventDefault();
+            const form = event.target;
+            const formData = new FormData(form);
             
-            const formData = new FormData(e.target);
+            document.querySelector('.loading').style.display = 'block';
+            document.querySelector('.qr-container').style.display = 'none';
+            
             try {
-                const response = await fetch('/generate_qr', {
+                const response = await fetch('/admin/generate-qr', {
                     method: 'POST',
                     body: formData
                 });
                 
                 const data = await response.json();
-                
-                if (data.success) {
-                    const qrResult = document.getElementById('qrResult');
-                    const qrCode = document.getElementById('qrCode');
-                    const downloadBtn = document.getElementById('downloadBtn');
-                    const formLink = document.getElementById('formLink');
+                if (data.success && data.session) {
+                    document.getElementById('qrCode').src = `data:image/png;base64,${data.session.qr_code}`;
+                    document.querySelector('.qr-url').textContent = data.session.form_url;
+                    document.querySelector('.qr-container').style.display = 'block';
                     
-                    qrCode.src = `data:image/png;base64,${data.qr_code}`;
-                    downloadBtn.href = `data:image/png;base64,${data.qr_code}`;
-                    formLink.href = data.url;
-                    
-                    qrResult.style.display = 'block';
-                    qrResult.scrollIntoView({ behavior: 'smooth' });
+                    // Close modal and refresh after 1 second to show new session
+                    setTimeout(() => {
+                        const modal = bootstrap.Modal.getInstance(document.getElementById('qrModal'));
+                        modal.hide();
+                        location.reload();
+                    }, 1000);
                 } else {
-                    alert(data.error || 'Failed to generate QR code');
+                    alert('Failed to generate QR code');
                 }
             } catch (error) {
-                alert('An error occurred while generating the QR code');
+                console.error('Error:', error);
+                alert('Failed to generate QR code');
+            } finally {
+                document.querySelector('.loading').style.display = 'none';
             }
-        });
+        }
+
+        function showQR(id, qrCode, formUrl) {
+            const modal = new bootstrap.Modal(document.getElementById('qrDisplayModal'));
+            const qrError = document.getElementById('qrError');
+            const qrContainer = document.getElementById('qrContainer');
+            const qrImage = document.getElementById('displayQrCode');
+            
+            // Reset display
+            qrError.classList.add('d-none');
+            qrContainer.classList.remove('d-none');
+            
+            if (!qrCode) {
+                qrError.classList.remove('d-none');
+                qrContainer.classList.add('d-none');
+            } else {
+                qrImage.src = `data:image/png;base64,${qrCode}`;
+                qrImage.onerror = () => {
+                    qrError.classList.remove('d-none');
+                    qrContainer.classList.add('d-none');
+                };
+                document.getElementById('displayQrUrl').innerHTML = `
+                    <a href="${formUrl}" target="_blank" class="btn btn-success btn-lg">
+                        <i class="fas fa-external-link-alt me-2"></i>Open Form
+                    </a>
+                `;
+            }
+            modal.show();
+        }
+
+        async function toggleSession(id) {
+            try {
+                const response = await fetch(`/admin/toggle-session/${id}`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                if (response.ok) {
+                    location.reload(); // Refresh to update session status
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Failed to toggle session');
+            }
+        }
+
+        async function deleteSession(id) {
+            if (!confirm('Are you sure you want to delete this session?')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/admin/delete-session/${id}`, {
+                    method: 'POST'
+                });
+                if (response.ok) {
+                    const row = document.getElementById(`session-${id}`);
+                    if (row) row.remove();
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Failed to delete session');
+            }
+        }
     </script>
 </body>
 </html>

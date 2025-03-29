@@ -1,203 +1,301 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
 import os
+import secrets
+import hashlib
 import base64
 import segno
 from io import BytesIO
-from urllib.parse import quote
-import hashlib
-import time
-import secrets
-import re
+from datetime import datetime
+from urllib.parse import urlencode
+from functools import wraps
 
 app = Flask(__name__)
-# Generate a random secret key at startup
-app.secret_key = secrets.token_hex(32)
+app.secret_key = secrets.token_hex(16)
 
-# Your existing Google Form URL
-GOOGLE_FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLSdnEVo2O_Ij6cUwtA4tiVOfG_Gb8Gfd9D4QI2St7wBMdiWkMA/formResponse"
+# In-memory storage
+ADMINS = {}  # username -> {password_hash, created_at}
+ACTIVE_SESSIONS = {}  # admin_username -> {session_id -> session_data}
+SESSION_RESPONSES = {}  # admin_username -> {session_id -> [responses]}
 
-# Form field IDs from your form
+# Your original form ID - this will be used as a template
+TEMPLATE_FORM_ID = '1FAIpQLSdnEVo2O_Ij6cUwtA4tiVOfG_Gb8Gfd9D4QI2St7wBMdiWkMA'
+
+GOOGLE_FORMS = {
+    'base_url': 'https://docs.google.com/forms/d/e/',
+    'response_url': 'https://docs.google.com/forms/d/e/{form_id}/formResponse'
+}
+
+# These are the entry IDs from your form
 FORM_FIELDS = {
-    'session': 'entry.1294673448',
-    'faculty': 'entry.13279433',
-    'branch': 'entry.1785981667',
-    'semester': 'entry.771272441'
+    'name': 'entry.303339851',          # Student Name
+    'student_id': 'entry.451434900',    # Student ID/Roll Number
+    'semester': 'entry.771272441',      # Semester
+    'branch': 'entry.1785981667',       # Branch
+    'session': 'entry.1294673448',      # Subject/Session
+    'faculty': 'entry.13279433',        # Faculty Name
+    'location': 'entry.2093708733',     # Location
+    'timestamp': 'entry.1574315841'     # Timestamp
 }
-
-# Admin credentials storage
-ADMINS = {
-    'admin': {
-        'password': 'admin123',  # Default admin account
-        'created_at': time.time()
-    }
-}
-
-def validate_password(password):
-    """Validate password meets requirements"""
-    if len(password) < 8:
-        return False, "Password must be at least 8 characters long"
-    if not re.search(r'[A-Za-z]', password):
-        return False, "Password must contain at least one letter"
-    if not re.search(r'\d', password):
-        return False, "Password must contain at least one number"
-    if not re.search(r'[@$!%*#?&]', password):
-        return False, "Password must contain at least one special character"
-    return True, "Password is valid"
-
-def validate_username(username):
-    """Validate username meets requirements"""
-    if not re.match(r'^[a-zA-Z0-9_]{3,20}$', username):
-        return False, "Username must be 3-20 characters and contain only letters, numbers, and underscores"
-    return True, "Username is valid"
 
 def hash_password(password):
-    """Hash password using SHA-512"""
-    return hashlib.sha512(password.encode()).hexdigest()
+    salt = os.urandom(32)
+    key = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt, 100000)
+    return base64.b64encode(salt + key).decode('utf-8')
+
+def verify_password(password, hashed):
+    decoded = base64.b64decode(hashed.encode('utf-8'))
+    salt, key = decoded[:32], decoded[32:]
+    new_key = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt, 100000)
+    return new_key == key
+
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'admin_username' not in session:
+            flash('Please log in first.', 'error')
+            return redirect(url_for('admin_login'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+def generate_session_qr(admin_username, session_id, session_data):
+    """Generate QR code for a session with pre-filled form fields"""
+    # Initialize storage for this admin if not exists
+    if admin_username not in SESSION_RESPONSES:
+        SESSION_RESPONSES[admin_username] = {}
+    
+    if session_id not in SESSION_RESPONSES[admin_username]:
+        SESSION_RESPONSES[admin_username][session_id] = []
+    
+    # Create a form submission URL
+    params = {
+        FORM_FIELDS['session']: session_data['name'],
+        FORM_FIELDS['faculty']: session_data['faculty'],
+        FORM_FIELDS['branch']: session_data['branch'],
+        FORM_FIELDS['semester']: session_data['semester'],
+        'sessionId': session_id,
+        'adminId': admin_username
+    }
+    
+    # Create a local endpoint URL for form submission
+    form_url = url_for('submit_attendance', session_id=session_id, admin_id=admin_username, _external=True)
+    
+    try:
+        qr = segno.make(form_url, error='H')
+        buffer = BytesIO()
+        qr.save(buffer, kind='png', scale=20)
+        qr_b64 = base64.b64encode(buffer.getvalue()).decode()
+        buffer.close()
+        return qr_b64, form_url
+    except Exception as e:
+        print(f"Error generating QR code: {e}")
+        return None, form_url
+
+@app.route('/submit-attendance/<admin_id>/<session_id>', methods=['GET', 'POST'])
+def submit_attendance(admin_id, session_id):
+    if request.method == 'POST':
+        if admin_id not in SESSION_RESPONSES or session_id not in SESSION_RESPONSES[admin_id]:
+            return jsonify({'error': 'Invalid session'}), 404
+            
+        # Get session data
+        session_data = ACTIVE_SESSIONS[admin_id][session_id]
+        if not session_data['active']:
+            return jsonify({'error': 'Session is not active'}), 403
+            
+        # Record the attendance
+        attendance = {
+            'student_name': request.form.get('student_name'),
+            'student_id': request.form.get('student_id'),
+            'timestamp': datetime.now(),
+            'session_name': session_data['name'],
+            'faculty': session_data['faculty'],
+            'branch': session_data['branch'],
+            'semester': session_data['semester']
+        }
+        
+        SESSION_RESPONSES[admin_id][session_id].append(attendance)
+        return jsonify({'success': True})
+        
+    # Show the attendance form
+    if admin_id in ACTIVE_SESSIONS and session_id in ACTIVE_SESSIONS[admin_id]:
+        session_data = ACTIVE_SESSIONS[admin_id][session_id]
+        return render_template('attendance_form.html', 
+                            session=session_data,
+                            admin_id=admin_id,
+                            session_id=session_id)
+    
+    return 'Session not found', 404
+
+@app.route('/admin/view-responses/<session_id>')
+@login_required
+def view_responses(session_id):
+    admin_username = session['admin_username']
+    if session_id not in ACTIVE_SESSIONS[admin_username]:
+        flash('Session not found.', 'error')
+        return redirect(url_for('admin_dashboard'))
+    
+    # Get responses for this session
+    responses = SESSION_RESPONSES[admin_username].get(session_id, [])
+    session_data = ACTIVE_SESSIONS[admin_username][session_id]
+    
+    return render_template('admin/view_responses.html',
+                         session=session_data,
+                         responses=responses)
 
 @app.route('/')
 def index():
-    if 'admin_id' in session:
-        return redirect(url_for('admin_dashboard'))
     return redirect(url_for('admin_login'))
-
-@app.route('/admin/login', methods=['GET', 'POST'])
-def admin_login():
-    if request.method == 'POST':
-        username = request.form.get('username', '').strip()
-        password = request.form.get('password', '')
-        
-        if username in ADMINS and ADMINS[username]['password'] == password:
-            session['admin_id'] = username
-            session['login_time'] = time.time()
-            flash('Login successful!', 'success')
-            return redirect(url_for('admin_dashboard'))
-        else:
-            # Add delay to prevent brute force attacks
-            time.sleep(1)
-            flash('Invalid username or password', 'danger')
-            
-    return render_template('admin/login.html')
 
 @app.route('/admin/register', methods=['GET', 'POST'])
 def admin_register():
     if request.method == 'POST':
-        username = request.form.get('username', '').strip()
-        password = request.form.get('password', '')
-        confirm_password = request.form.get('confirm_password', '')
-
-        # Validate username
-        username_valid, username_msg = validate_username(username)
-        if not username_valid:
-            flash(username_msg, 'danger')
-            return render_template('admin/register.html')
-
-        # Check if username exists
+        username = request.form.get('username')
+        password = request.form.get('password')
+        
+        if not username or not password:
+            flash('Username and password are required.', 'error')
+            return redirect(url_for('admin_register'))
+            
         if username in ADMINS:
-            flash('Username already exists', 'danger')
-            return render_template('admin/register.html')
-
-        # Validate password
-        password_valid, password_msg = validate_password(password)
-        if not password_valid:
-            flash(password_msg, 'danger')
-            return render_template('admin/register.html')
-
-        # Check password confirmation
-        if password != confirm_password:
-            flash('Passwords do not match', 'danger')
-            return render_template('admin/register.html')
-
-        # Create new admin account
+            flash('Username already exists.', 'error')
+            return redirect(url_for('admin_register'))
+            
         ADMINS[username] = {
-            'password': hash_password(password),
-            'created_at': time.time()
+            'password_hash': hash_password(password),
+            'created_at': datetime.now()
         }
-
-        flash('Account created successfully! Please login.', 'success')
-        return redirect(url_for('admin_login'))
-
-    return render_template('admin/register.html')
-
-@app.route('/admin/dashboard')
-def admin_dashboard():
-    if 'admin_id' not in session:
-        flash('Please login first', 'danger')
-        return redirect(url_for('admin_login'))
-    
-    # Check session expiry (8 hours)
-    if time.time() - session.get('login_time', 0) > 8 * 3600:
-        session.clear()
-        flash('Session expired. Please login again.', 'warning')
+        
+        # Initialize admin's session storage
+        ACTIVE_SESSIONS[username] = {}
+        SESSION_RESPONSES[username] = {}
+        
+        flash('Registration successful! Please log in.', 'success')
         return redirect(url_for('admin_login'))
         
-    return render_template('admin/dashboard.html')
+    return render_template('admin/register.html')
+
+@app.route('/admin/login', methods=['GET', 'POST'])
+def admin_login():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        
+        if username in ADMINS and verify_password(password, ADMINS[username]['password_hash']):
+            session['admin_username'] = username
+            return redirect(url_for('admin_dashboard'))
+            
+        flash('Invalid username or password.', 'error')
+        
+    return render_template('admin/login.html')
 
 @app.route('/admin/logout')
 def admin_logout():
-    session.clear()
-    flash('You have been logged out', 'info')
+    session.pop('admin_username', None)
+    flash('Logged out successfully.', 'success')
     return redirect(url_for('admin_login'))
 
-@app.route('/generate_qr', methods=['POST'])
-def generate_qr():
-    if 'admin_id' not in session:
-        return jsonify({'error': 'Please login first'}), 401
-
-    try:
-        # Get and sanitize form data
-        session_name = request.form.get('session', '').strip()
-        faculty_name = request.form.get('faculty', '').strip()
-        branch = request.form.get('branch', '').strip()
-        semester = request.form.get('semester', '').strip()
-
-        if not session_name:
-            return jsonify({'error': 'Session name is required'}), 400
-
-        # Add timestamp to prevent caching of QR codes
-        timestamp = int(time.time())
-        
-        # Build the form URL with prefilled values
-        form_url = f"{GOOGLE_FORM_URL}?"
-        
-        # Add form fields with validation
-        params = []
-        if session_name:
-            params.append(f"{FORM_FIELDS['session']}={quote(session_name)}")
-        if faculty_name:
-            params.append(f"{FORM_FIELDS['faculty']}={quote(faculty_name)}")
-        if branch:
-            params.append(f"{FORM_FIELDS['branch']}={quote(branch)}")
-        if semester:
-            params.append(f"{FORM_FIELDS['semester']}={quote(semester)}")
-        
-        # Add timestamp to URL to prevent QR code reuse
-        params.append(f"t={timestamp}")
-        
-        form_url += '&'.join(params)
-        
-        # Generate QR code with error correction
-        qr = segno.make(form_url, error='H', micro=False)
-        buffer = BytesIO()
-        qr.save(buffer, kind='png', scale=10, border=4)
-        buffer.seek(0)
-        img_str = base64.b64encode(buffer.getvalue()).decode()
-
-        return jsonify({
-            'success': True,
-            'qr_code': img_str,
-            'url': form_url,
-            'expires_in': '15 minutes'  # QR codes expire after 15 minutes
+@app.route('/admin/dashboard')
+@login_required
+def admin_dashboard():
+    admin_username = session['admin_username']
+    active_sessions = []
+    
+    # Get only this admin's sessions
+    for session_id, session_data in ACTIVE_SESSIONS[admin_username].items():
+        # Regenerate QR if not present
+        if 'qr_code' not in session_data or not session_data['qr_code']:
+            qr_code, form_url = generate_session_qr(admin_username, session_id, session_data)
+            session_data['qr_code'] = qr_code
+            session_data['form_url'] = form_url
+            
+        active_sessions.append({
+            'id': session_id,
+            'name': session_data['name'],
+            'faculty': session_data['faculty'],
+            'branch': session_data['branch'],
+            'semester': session_data['semester'],
+            'created_at': session_data['created_at'],
+            'active': session_data['active'],
+            'qr_code': session_data['qr_code'],
+            'form_url': session_data['form_url']
         })
+        
+    return render_template('admin/dashboard.html', sessions=active_sessions)
 
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+@app.route('/admin/generate-qr', methods=['POST'])
+@login_required
+def generate_qr():
+    admin_username = session['admin_username']
+    name = request.form.get('name')
+    faculty = request.form.get('faculty')
+    branch = request.form.get('branch')
+    semester = request.form.get('semester')
+    
+    if not all([name, faculty, branch, semester]):
+        return jsonify({'error': 'All fields are required'}), 400
+        
+    session_id = secrets.token_urlsafe(16)
+    session_data = {
+        'name': name,
+        'faculty': faculty,
+        'branch': branch,
+        'semester': semester,
+        'created_at': datetime.now(),
+        'active': True
+    }
+    
+    qr_code, form_url = generate_session_qr(admin_username, session_id, session_data)
+    if not qr_code:
+        return jsonify({'error': 'Failed to generate QR code'}), 500
+        
+    session_data['qr_code'] = qr_code
+    session_data['form_url'] = form_url
+    
+    # Store in admin's sessions
+    if admin_username not in ACTIVE_SESSIONS:
+        ACTIVE_SESSIONS[admin_username] = {}
+    ACTIVE_SESSIONS[admin_username][session_id] = session_data
+    
+    return jsonify({
+        'success': True,
+        'session': {
+            'id': session_id,
+            'qr_code': qr_code,
+            'form_url': form_url,
+            'name': name
+        }
+    })
 
-@app.route('/view_responses')
-def view_responses():
-    if 'admin_id' not in session:
-        flash('Please login first', 'danger')
-        return redirect(url_for('admin_login'))
-    return redirect(GOOGLE_FORM_URL.replace('formResponse', 'responses'))
+@app.route('/admin/toggle-session/<session_id>', methods=['POST'])
+@login_required
+def toggle_session(session_id):
+    admin_username = session['admin_username']
+    if session_id in ACTIVE_SESSIONS[admin_username]:
+        ACTIVE_SESSIONS[admin_username][session_id]['active'] = not ACTIVE_SESSIONS[admin_username][session_id]['active']
+        return jsonify({'success': True, 'active': ACTIVE_SESSIONS[admin_username][session_id]['active']})
+    return jsonify({'error': 'Session not found'}), 404
+
+@app.route('/admin/check-session/<session_id>')
+@login_required
+def check_session(session_id):
+    admin_username = session['admin_username']
+    if session_id in ACTIVE_SESSIONS[admin_username]:
+        session_data = ACTIVE_SESSIONS[admin_username][session_id]
+        return jsonify({
+            'active': session_data['active'],
+            'form_url': session_data.get('form_url', '')
+        })
+    return jsonify({'error': 'Session not found'}), 404
+
+@app.route('/admin/delete-session/<session_id>', methods=['POST'])
+@login_required
+def delete_session(session_id):
+    admin_username = session['admin_username']
+    if session_id in ACTIVE_SESSIONS[admin_username]:
+        del ACTIVE_SESSIONS[admin_username][session_id]
+        if session_id in SESSION_RESPONSES[admin_username]:
+            del SESSION_RESPONSES[admin_username][session_id]
+        return jsonify({'success': True})
+    return jsonify({'error': 'Session not found'}), 404
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    app.run(debug=True)
