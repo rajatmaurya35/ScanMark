@@ -9,11 +9,7 @@
     "routes": [
         {
             "src": "/(.*)",
-            "dest": "index.py"
+            "dest": "/"
         }
-    ],
-    "env": {
-        "FLASK_APP": "index.py",
-        "FLASK_ENV": "production"
-    }
+    ]
 }
