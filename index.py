@@ -16,6 +16,7 @@ app.secret_key = secrets.token_hex(16)
 ADMINS = {}  # username -> {password_hash, created_at}
 ACTIVE_SESSIONS = {}  # admin_username -> {session_id -> session_data}
 SESSION_RESPONSES = {}  # admin_username -> {session_id -> [responses]}
+ATTENDANCE_RECORDS = []  # Store attendance records with verification data
 
 # Your original form ID - this will be used as a template
 TEMPLATE_FORM_ID = '1FAIpQLSdnEVo2O_Ij6cUwtA4tiVOfG_Gb8Gfd9D4QI2St7wBMdiWkMA'
@@ -124,6 +125,43 @@ def submit_attendance(admin_id, session_id):
                             session_id=session_id)
     
     return 'Session not found', 404
+
+@app.route('/submit-attendance', methods=['POST'])
+def submit_attendance_verification():
+    try:
+        student_id = request.form.get('student_id')
+        latitude = request.form.get('latitude')
+        longitude = request.form.get('longitude')
+        biometric_verified = request.form.get('biometric_verified') == 'true'
+        
+        if not all([student_id, latitude, longitude, biometric_verified]):
+            return jsonify({
+                'success': False,
+                'message': 'All verifications (location and biometric) are required'
+            }), 400
+
+        # Store attendance with verification data
+        attendance_data = {
+            'student_id': student_id,
+            'latitude': float(latitude),
+            'longitude': float(longitude),
+            'biometric_verified': biometric_verified,
+            'created_at': datetime.now().isoformat()
+        }
+        
+        # Add to your storage (e.g., database)
+        ATTENDANCE_RECORDS.append(attendance_data)
+        
+        return jsonify({
+            'success': True,
+            'message': 'Attendance marked successfully'
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
 
 @app.route('/admin/view-responses/<session_id>')
 @login_required
