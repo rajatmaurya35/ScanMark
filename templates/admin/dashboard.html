@@ -29,6 +29,22 @@
         .navbar-brand {
             font-size: 1.25rem;
             color: white !important;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .navbar-brand i {
+            font-size: 1.5rem;
+        }
+
+        .nav-link {
+            color: rgba(255,255,255,0.8) !important;
+            transition: color 0.3s;
+        }
+
+        .nav-link:hover {
+            color: white !important;
         }
 
         .card {
@@ -62,6 +78,12 @@
             color: white;
         }
 
+        .btn-warning {
+            background: var(--accent-color);
+            border: none;
+            color: white;
+        }
+
         .form-control {
             border-radius: 5px;
             padding: 0.5rem;
@@ -71,6 +93,24 @@
         .form-control:focus {
             border-color: var(--primary-color);
             box-shadow: none;
+        }
+
+        .table {
+            margin-bottom: 0;
+        }
+
+        .table th {
+            border-top: none;
+            font-weight: 600;
+        }
+
+        .badge {
+            padding: 0.5rem 0.75rem;
+            border-radius: 5px;
+        }
+
+        .badge.bg-success {
+            background-color: var(--primary-color) !important;
         }
 
         #qrCode {
@@ -104,23 +144,23 @@
             color: var(--primary-color);
         }
 
-        .session-card {
-            transition: all 0.3s ease;
+        .btn-sm {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.875rem;
         }
 
-        .session-card.expired {
-            opacity: 0.7;
+        .btn-action {
+            width: 32px;
+            height: 32px;
+            padding: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 0.25rem;
         }
 
-        .countdown {
-            font-size: 0.9rem;
-            color: #666;
-        }
-
-        .required-field::after {
-            content: '*';
-            color: red;
-            margin-left: 4px;
+        .btn-action:last-child {
+            margin-right: 0;
         }
     </style>
 </head>
@@ -150,30 +190,23 @@
         </div>
     </nav>
 
-    <div class="container mt-4">
+    <div class="container">
         <div class="row">
             <div class="col-12">
                 <div class="d-flex justify-content-between align-items-center mb-4">
                     <h2>Admin Dashboard</h2>
-                    <div>
-                        <button type="button" class="btn btn-primary me-2" data-bs-toggle="modal" data-bs-target="#qrModal">
-                            <i class="fas fa-qrcode me-2"></i>Generate QR Code
-                        </button>
-                    </div>
+                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#qrModal">
+                        <i class="fas fa-qrcode me-2"></i> Generate QR Code
+                    </button>
                 </div>
-            </div>
-        </div>
 
-        <!-- Active Sessions -->
-        <div class="row">
-            <div class="col-12">
-                <div class="card shadow-sm">
+                <div class="card">
                     <div class="card-header">
-                        <h5 class="mb-0 text-white">Active Sessions</h5>
+                        <h5 class="mb-0">Active Sessions</h5>
                     </div>
-                    <div class="card-body">
+                    <div class="card-body p-0">
                         <div class="table-responsive">
-                            <table class="table table-hover">
+                            <table class="table table-hover mb-0">
                                 <thead>
                                     <tr>
                                         <th>Session</th>
@@ -197,16 +230,16 @@
                                             </span>
                                         </td>
                                         <td>
-                                            <button class="btn btn-sm btn-info me-1" onclick="showQR('{{ session.id }}', '{{ session.qr_code }}', '{{ session.form_url }}')">
+                                            <button class="btn btn-info btn-sm btn-action" onclick="showQR('{{ session.id }}', '{{ session.qr_code }}', '{{ session.form_url }}')">
                                                 <i class="fas fa-qrcode"></i>
                                             </button>
-                                            <button class="btn btn-sm btn-warning me-1" onclick="toggleSession('{{ session.id }}')">
+                                            <button class="btn btn-warning btn-sm btn-action" onclick="toggleSession('{{ session.id }}')">
                                                 <i class="fas fa-power-off"></i>
                                             </button>
-                                            <a href="{{ url_for('view_responses', session_id=session.id) }}" class="btn btn-sm btn-success me-1">
+                                            <a href="{{ url_for('view_responses', session_id=session.id) }}" class="btn btn-success btn-sm btn-action">
                                                 <i class="fas fa-table"></i>
                                             </a>
-                                            <button class="btn btn-sm btn-danger" onclick="deleteSession('{{ session.id }}')">
+                                            <button class="btn btn-danger btn-sm btn-action" onclick="deleteSession('{{ session.id }}')">
                                                 <i class="fas fa-trash"></i>
                                             </button>
                                         </td>
@@ -232,19 +265,19 @@
                 <div class="modal-body">
                     <form id="qrForm" onsubmit="generateQR(event)">
                         <div class="mb-3">
-                            <label for="name" class="form-label required-field">Session Name</label>
+                            <label for="name" class="form-label">Session Name</label>
                             <input type="text" class="form-control" id="name" name="name" required>
                         </div>
                         <div class="mb-3">
-                            <label for="faculty" class="form-label required-field">Faculty Name</label>
+                            <label for="faculty" class="form-label">Faculty Name</label>
                             <input type="text" class="form-control" id="faculty" name="faculty" required>
                         </div>
                         <div class="mb-3">
-                            <label for="branch" class="form-label required-field">Branch</label>
+                            <label for="branch" class="form-label">Branch</label>
                             <input type="text" class="form-control" id="branch" name="branch" required>
                         </div>
                         <div class="mb-3">
-                            <label for="semester" class="form-label required-field">Semester</label>
+                            <label for="semester" class="form-label">Semester</label>
                             <input type="text" class="form-control" id="semester" name="semester" required>
                         </div>
                         <div class="loading">
@@ -269,9 +302,9 @@
     <div class="modal fade" id="qrDisplayModal" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
-                <div class="modal-header" style="background: linear-gradient(135deg, var(--primary-color), var(--secondary-color)); color: white;">
+                <div class="modal-header">
                     <h5 class="modal-title">Session QR Code</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body text-center p-4">
                     <div id="qrError" class="alert alert-danger d-none">
@@ -290,13 +323,16 @@
     <script>
         async function generateQR(event) {
             event.preventDefault();
-            const form = event.target;
-            const formData = new FormData(form);
             
-            document.querySelector('.loading').style.display = 'block';
-            document.querySelector('.qr-container').style.display = 'none';
+            const form = document.getElementById('qrForm');
+            const loading = document.querySelector('.loading');
+            const qrContainer = document.querySelector('.qr-container');
+            
+            loading.style.display = 'block';
+            qrContainer.style.display = 'none';
             
             try {
+                const formData = new FormData(form);
                 const response = await fetch('/admin/generate-qr', {
                     method: 'POST',
                     body: formData
@@ -306,9 +342,8 @@
                 if (data.success && data.session) {
                     document.getElementById('qrCode').src = `data:image/png;base64,${data.session.qr_code}`;
                     document.querySelector('.qr-url').textContent = data.session.form_url;
-                    document.querySelector('.qr-container').style.display = 'block';
+                    qrContainer.style.display = 'block';
                     
-                    // Close modal and refresh after 1 second to show new session
                     setTimeout(() => {
                         const modal = bootstrap.Modal.getInstance(document.getElementById('qrModal'));
                         modal.hide();
@@ -321,7 +356,7 @@
                 console.error('Error:', error);
                 alert('Failed to generate QR code');
             } finally {
-                document.querySelector('.loading').style.display = 'none';
+                loading.style.display = 'none';
             }
         }
 
@@ -331,7 +366,6 @@
             const qrContainer = document.getElementById('qrContainer');
             const qrImage = document.getElementById('displayQrCode');
             
-            // Reset display
             qrError.classList.add('d-none');
             qrContainer.classList.remove('d-none');
             
@@ -360,7 +394,7 @@
                 });
                 const data = await response.json();
                 if (response.ok) {
-                    location.reload(); // Refresh to update session status
+                    location.reload();
                 }
             } catch (error) {
                 console.error('Error:', error);

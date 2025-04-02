@@ -20,26 +20,6 @@ ACTIVE_SESSIONS = {}  # admin_username -> {session_id -> session_data}
 SESSION_RESPONSES = {}  # admin_username -> {session_id -> [responses]}
 ATTENDANCE_RECORDS = []  # Store attendance records with verification data
 
-# Your original form ID - this will be used as a template
-TEMPLATE_FORM_ID = '1FAIpQLSdnEVo2O_Ij6cUwtA4tiVOfG_Gb8Gfd9D4QI2St7wBMdiWkMA'
-
-GOOGLE_FORMS = {
-    'base_url': 'https://docs.google.com/forms/d/e/',
-    'response_url': 'https://docs.google.com/forms/d/e/{form_id}/formResponse'
-}
-
-# These are the entry IDs from your form
-FORM_FIELDS = {
-    'name': 'entry.303339851',          # Student Name
-    'student_id': 'entry.451434900',    # Student ID/Roll Number
-    'semester': 'entry.771272441',      # Semester
-    'branch': 'entry.1785981667',       # Branch
-    'session': 'entry.1294673448',      # Subject/Session
-    'faculty': 'entry.13279433',        # Faculty Name
-    'location': 'entry.2093708733',     # Location
-    'timestamp': 'entry.1574315841'     # Timestamp
-}
-
 def hash_password(password):
     salt = os.urandom(32)
     key = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt, 100000)
@@ -59,133 +39,6 @@ def login_required(f):
             return redirect(url_for('admin_login'))
         return f(*args, **kwargs)
     return decorated_function
-
-def generate_session_qr(admin_username, session_id, session_data):
-    """Generate QR code for a session with pre-filled form fields"""
-    # Initialize storage for this admin if not exists
-    if admin_username not in SESSION_RESPONSES:
-        SESSION_RESPONSES[admin_username] = {}
-    
-    if session_id not in SESSION_RESPONSES[admin_username]:
-        SESSION_RESPONSES[admin_username][session_id] = []
-    
-    # Create a form submission URL
-    params = {
-        FORM_FIELDS['session']: session_data['name'],
-        FORM_FIELDS['faculty']: session_data['faculty'],
-        FORM_FIELDS['branch']: session_data['branch'],
-        FORM_FIELDS['semester']: session_data['semester'],
-        'sessionId': session_id,
-        'adminId': admin_username
-    }
-    
-    # Create a local endpoint URL for form submission
-    form_url = url_for('submit_attendance', session_id=session_id, admin_id=admin_username, _external=True)
-    
-    try:
-        qr = segno.make(form_url, error='H')
-        buffer = BytesIO()
-        qr.save(buffer, kind='png', scale=20)
-        qr_b64 = base64.b64encode(buffer.getvalue()).decode()
-        buffer.close()
-        return qr_b64, form_url
-    except Exception as e:
-        print(f"Error generating QR code: {e}")
-        return None, form_url
-
-@app.route('/submit-attendance', methods=['POST'])
-def submit_attendance():
-    try:
-        data = {
-            'student_id': request.form.get('student_id'),
-            'student_name': request.form.get('student_name'),
-            'latitude': float(request.form.get('latitude')),
-            'longitude': float(request.form.get('longitude')),
-            'biometric_verified': request.form.get('biometric_verified') == 'true',
-            'biometric_type': request.form.get('biometric_type', 'Biometric'),
-            'created_at': datetime.now().isoformat()
-        }
-        
-        if not all([data['student_id'], data['student_name'], 
-                   data['latitude'], data['longitude'], data['biometric_verified']]):
-            return jsonify({
-                'success': False,
-                'message': 'All verifications (location and biometric) are required'
-            }), 400
-
-        # Store in session responses
-        admin_username = session.get('admin_username')
-        session_id = request.args.get('session_id')
-        
-        if admin_username and session_id:
-            if admin_username not in SESSION_RESPONSES:
-                SESSION_RESPONSES[admin_username] = {}
-            if session_id not in SESSION_RESPONSES[admin_username]:
-                SESSION_RESPONSES[admin_username][session_id] = []
-            
-            SESSION_RESPONSES[admin_username][session_id].append(data)
-            
-            return jsonify({
-                'success': True,
-                'message': 'Attendance marked successfully'
-            })
-        else:
-            return jsonify({
-                'success': False,
-                'message': 'Invalid session'
-            }), 400
-            
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'message': str(e)
-        }), 500
-
-@app.route('/admin/view-responses/<session_id>')
-@login_required
-def view_responses(session_id):
-    admin_username = session.get('admin_username')
-    responses = SESSION_RESPONSES.get(admin_username, {}).get(session_id, [])
-    session_data = ACTIVE_SESSIONS.get(admin_username, {}).get(session_id, {})
-    
-    return render_template('admin/view_responses.html', 
-                         responses=responses,
-                         session=session_data,
-                         session_id=session_id)
-
-@app.route('/admin/download-responses/<session_id>')
-@login_required
-def download_responses(session_id):
-    admin_username = session.get('admin_username')
-    responses = SESSION_RESPONSES.get(admin_username, {}).get(session_id, [])
-    
-    if not responses:
-        return "No responses found", 404
-        
-    # Create CSV content
-    output = StringIO()
-    writer = csv.writer(output)
-    writer.writerow(['Student Name', 'Student ID', 'Time', 'Biometric Type', 
-                    'Location (Lat, Long)'])
-    
-    for resp in responses:
-        writer.writerow([
-            resp['student_name'],
-            resp['student_id'],
-            resp['created_at'],
-            resp['biometric_type'],
-            f"{resp['latitude']}, {resp['longitude']}"
-        ])
-    
-    # Create response
-    output.seek(0)
-    return Response(
-        output.getvalue(),
-        mimetype='text/csv',
-        headers={
-            'Content-Disposition': f'attachment; filename=responses_{session_id}.csv'
-        }
-    )
 
 @app.route('/')
 def index():
@@ -311,6 +164,165 @@ def generate_qr():
         }
     })
 
+def generate_session_qr(admin_username, session_id, session_data):
+    """Generate QR code for a session with pre-filled form fields"""
+    if admin_username not in SESSION_RESPONSES:
+        SESSION_RESPONSES[admin_username] = {}
+    
+    if session_id not in SESSION_RESPONSES[admin_username]:
+        SESSION_RESPONSES[admin_username][session_id] = []
+    
+    try:
+        # Generate attendance form URL with proper parameters
+        base_url = request.host_url.rstrip('/')
+        form_url = f"{base_url}/submit-attendance?admin={admin_username}&session_id={session_id}"
+        
+        # Generate QR code
+        qr = segno.make(form_url)
+        
+        # Save QR code to a BytesIO object
+        qr_io = BytesIO()
+        qr.save(qr_io, kind='png', scale=10)
+        qr_io.seek(0)
+        
+        # Convert to base64
+        qr_base64 = base64.b64encode(qr_io.getvalue()).decode()
+        
+        return qr_base64, form_url
+    except Exception as e:
+        print(f"Error generating QR code: {e}")
+        return None, None
+
+@app.route('/submit-attendance', methods=['GET', 'POST'])
+def submit_attendance():
+    if request.method == 'GET':
+        # Show the attendance form
+        session_id = request.args.get('session_id')
+        admin_username = request.args.get('admin')
+        
+        if admin_username and session_id:
+            if admin_username in ACTIVE_SESSIONS and session_id in ACTIVE_SESSIONS[admin_username]:
+                session_data = ACTIVE_SESSIONS[admin_username][session_id]
+                return render_template('attendance_form.html', 
+                                    session=session_data,
+                                    admin_username=admin_username,
+                                    session_id=session_id)
+        return 'Invalid session', 404
+
+    # Handle POST request
+    try:
+        # Get form data
+        student_id = request.form.get('student_id')
+        student_name = request.form.get('student_name')
+        latitude = request.form.get('latitude')
+        longitude = request.form.get('longitude')
+        biometric_verified = request.form.get('biometric_verified') == 'true'
+        biometric_type = request.form.get('biometric_type', 'Biometric')
+        admin_username = request.form.get('admin')
+        session_id = request.form.get('session_id')
+
+        # Validate required fields
+        if not all([student_id, student_name, latitude, longitude, biometric_verified, admin_username, session_id]):
+            return jsonify({
+                'success': False,
+                'message': 'All fields and verifications are required'
+            }), 400
+
+        # Check if session exists and is active
+        if admin_username not in ACTIVE_SESSIONS or session_id not in ACTIVE_SESSIONS[admin_username]:
+            return jsonify({
+                'success': False,
+                'message': 'Session not found'
+            }), 404
+
+        session_data = ACTIVE_SESSIONS[admin_username][session_id]
+        if not session_data.get('active', False):
+            return jsonify({
+                'success': False,
+                'message': 'Session is not active'
+            }), 403
+
+        # Prepare attendance data
+        attendance_data = {
+            'student_id': student_id,
+            'student_name': student_name,
+            'latitude': float(latitude),
+            'longitude': float(longitude),
+            'biometric_verified': biometric_verified,
+            'biometric_type': biometric_type,
+            'session_name': session_data['name'],
+            'faculty': session_data['faculty'],
+            'branch': session_data['branch'],
+            'semester': session_data['semester'],
+            'created_at': datetime.now().isoformat()
+        }
+
+        # Store attendance
+        if admin_username not in SESSION_RESPONSES:
+            SESSION_RESPONSES[admin_username] = {}
+        if session_id not in SESSION_RESPONSES[admin_username]:
+            SESSION_RESPONSES[admin_username][session_id] = []
+        
+        SESSION_RESPONSES[admin_username][session_id].append(attendance_data)
+        
+        return jsonify({
+            'success': True,
+            'message': 'Attendance marked successfully'
+        })
+            
+    except Exception as e:
+        print(f"Error in submit_attendance: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': 'An error occurred while marking attendance'
+        }), 500
+
+@app.route('/admin/view-responses/<session_id>')
+@login_required
+def view_responses(session_id):
+    admin_username = session.get('admin_username')
+    responses = SESSION_RESPONSES.get(admin_username, {}).get(session_id, [])
+    session_data = ACTIVE_SESSIONS.get(admin_username, {}).get(session_id, {})
+    
+    return render_template('admin/view_responses.html', 
+                         responses=responses,
+                         session=session_data,
+                         session_id=session_id)
+
+@app.route('/admin/download-responses/<session_id>')
+@login_required
+def download_responses(session_id):
+    admin_username = session.get('admin_username')
+    responses = SESSION_RESPONSES.get(admin_username, {}).get(session_id, [])
+    
+    if not responses:
+        return "No responses found", 404
+        
+    # Create CSV content
+    output = StringIO()
+    writer = csv.writer(output)
+    writer.writerow(['Student Name', 'Student ID', 'Time', 'Biometric Type', 
+                    'Location (Lat, Long)'])
+    
+    for resp in responses:
+        writer.writerow([
+            resp['student_name'],
+            resp['student_id'],
+            resp['created_at'],
+            resp['biometric_type'],
+            f"{resp['latitude']}, {resp['longitude']}"
+        ])
+    
+    # Create response
+    output.seek(0)
+    return Response(
+        output.getvalue(),
+        mimetype='text/csv',
+        headers={
+            'Content-Disposition': f'attachment; filename=responses_{session_id}.csv'
+        }
+    )
+
 @app.route('/admin/toggle-session/<session_id>', methods=['POST'])
 @login_required
 def toggle_session(session_id):
@@ -318,18 +330,6 @@ def toggle_session(session_id):
     if session_id in ACTIVE_SESSIONS[admin_username]:
         ACTIVE_SESSIONS[admin_username][session_id]['active'] = not ACTIVE_SESSIONS[admin_username][session_id]['active']
         return jsonify({'success': True, 'active': ACTIVE_SESSIONS[admin_username][session_id]['active']})
-    return jsonify({'error': 'Session not found'}), 404
-
-@app.route('/admin/check-session/<session_id>')
-@login_required
-def check_session(session_id):
-    admin_username = session['admin_username']
-    if session_id in ACTIVE_SESSIONS[admin_username]:
-        session_data = ACTIVE_SESSIONS[admin_username][session_id]
-        return jsonify({
-            'active': session_data['active'],
-            'form_url': session_data.get('form_url', '')
-        })
     return jsonify({'error': 'Session not found'}), 404
 
 @app.route('/admin/delete-session/<session_id>', methods=['POST'])

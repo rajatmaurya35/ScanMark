@@ -78,23 +78,30 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_MAPS_KEY&callback=initMaps" async defer></script>
     <script>
-        function initMaps() {
-            var responses = {{ responses|tojson|safe }};
-            responses.forEach(function(response, index) {
-                if (response.latitude && response.longitude) {
-                    new google.maps.Map(document.getElementById('map-' + (index + 1)), {
-                        center: { 
-                            lat: parseFloat(response.latitude), 
-                            lng: parseFloat(response.longitude) 
-                        },
-                        zoom: 15,
-                        mapTypeId: 'roadmap'
-                    });
-                }
-            });
+        function initMap(elementId, lat, lng) {
+            // Use OpenStreetMap which doesn't require an API key
+            var mapUrl = `https://www.openstreetmap.org/export/embed.html?bbox=${lng-0.01},${lat-0.01},${lng+0.01},${lat+0.01}&layer=mapnik&marker=${lat},${lng}`;
+            
+            // Create and set the iframe
+            var iframe = document.createElement('iframe');
+            iframe.src = mapUrl;
+            iframe.style.width = '100%';
+            iframe.style.height = '100%';
+            iframe.style.border = 'none';
+            
+            // Replace the map container content
+            document.getElementById(elementId).innerHTML = '';
+            document.getElementById(elementId).appendChild(iframe);
         }
+
+        // Initialize maps for each response
+        var responses = {{ responses|tojson|safe }};
+        responses.forEach(function(response, index) {
+            if (response.latitude && response.longitude) {
+                initMap('map-' + (index + 1), response.latitude, response.longitude);
+            }
+        });
     </script>
 </body>
 </html>
