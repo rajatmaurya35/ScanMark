@@ -230,16 +230,19 @@
                                             </span>
                                         </td>
                                         <td>
-                                            <button class="btn btn-info btn-sm btn-action" onclick="showQR('{{ session.id }}', '{{ session.qr_code }}', '{{ session.form_url }}')">
+                                            <button class="btn btn-info btn-sm btn-action" onclick="showQR('{{ session.id }}', '{{ session.qr_code }}', '{{ session.form_url }}')" title="Show QR">
                                                 <i class="fas fa-qrcode"></i>
                                             </button>
-                                            <button class="btn btn-warning btn-sm btn-action" onclick="toggleSession('{{ session.id }}')">
+                                            <button class="btn btn-warning btn-sm btn-action" onclick="toggleSession('{{ session.id }}')" title="Toggle Active">
                                                 <i class="fas fa-power-off"></i>
                                             </button>
-                                            <a href="{{ url_for('view_responses', session_id=session.id) }}" class="btn btn-success btn-sm btn-action">
+                                            <a href="{{ url_for('view_responses', session_id=session.id) }}" class="btn btn-success btn-sm btn-action" title="View Responses">
                                                 <i class="fas fa-table"></i>
                                             </a>
-                                            <button class="btn btn-danger btn-sm btn-action" onclick="deleteSession('{{ session.id }}')">
+                                            <a href="{{ url_for('download_responses', session_id=session.id) }}" class="btn btn-primary btn-sm btn-action" title="Download CSV">
+                                                <i class="fas fa-download"></i>
+                                            </a>
+                                            <button class="btn btn-danger btn-sm btn-action" onclick="deleteSession('{{ session.id }}')" title="Delete">
                                                 <i class="fas fa-trash"></i>
                                             </button>
                                         </td>

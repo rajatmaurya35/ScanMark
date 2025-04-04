@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, Response
+from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, Response, send_file
 import os
 import secrets
 import hashlib
@@ -10,15 +10,38 @@ from urllib.parse import urlencode
 from functools import wraps
 import csv
 from io import StringIO
+import json
+from pathlib import Path
 
 app = Flask(__name__)
 app.secret_key = secrets.token_hex(16)
 
-# In-memory storage
-ADMINS = {}  # username -> {password_hash, created_at}
+# Create required directories
+for path in ['static/uploads', 'static/qr_codes']:
+    Path(path).mkdir(parents=True, exist_ok=True)
+
+# Load credentials from file
+def load_credentials():
+    try:
+        with open('credentials.json', 'r') as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
+
+def save_credentials(data):
+    with open('credentials.json', 'w') as f:
+        json.dump(data, f, indent=4)
+
+# Initialize storage
+ADMINS = load_credentials()  # username -> {password_hash, created_at}
 ACTIVE_SESSIONS = {}  # admin_username -> {session_id -> session_data}
 SESSION_RESPONSES = {}  # admin_username -> {session_id -> [responses]}
 ATTENDANCE_RECORDS = []  # Store attendance records with verification data
+
+# Initialize sessions for existing admins
+for username in ADMINS:
+    ACTIVE_SESSIONS[username] = {}
+    SESSION_RESPONSES[username] = {}
 
 def hash_password(password):
     salt = os.urandom(32)
@@ -60,8 +83,11 @@ def admin_register():
             
         ADMINS[username] = {
             'password_hash': hash_password(password),
-            'created_at': datetime.now()
+            'created_at': datetime.now().isoformat()
         }
+        
+        # Save credentials to file
+        save_credentials(ADMINS)
         
         # Initialize admin's session storage
         ACTIVE_SESSIONS[username] = {}
@@ -242,19 +268,42 @@ def submit_attendance():
                 'message': 'Session is not active'
             }), 403
 
-        # Prepare attendance data
+        # Handle image upload
+        image_path = None
+        if 'captured_image' in request.files:
+            try:
+                image = request.files['captured_image']
+                if image and image.filename:
+                    # Create a unique filename using timestamp and student ID
+                    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+                    filename = f'capture_{student_id}_{timestamp}.jpg'
+                    
+                    # Ensure uploads directory exists
+                    upload_dir = os.path.join('static', 'uploads')
+                    os.makedirs(upload_dir, exist_ok=True)
+                    
+                    # Save the image
+                    full_path = os.path.join(upload_dir, filename)
+                    image.save(full_path)
+                    image_path = f'uploads/{filename}'
+                    print(f'Image saved to: {full_path}')
+            except Exception as e:
+                print(f'Error saving image: {str(e)}')
+
+        # Prepare attendance data with proper location formatting
         attendance_data = {
-            'student_id': student_id,
             'student_name': student_name,
-            'latitude': float(latitude),
-            'longitude': float(longitude),
+            'student_id': student_id,
+            'created_at': datetime.now().isoformat(),
+            'latitude': float(latitude),  # Convert to float for map display
+            'longitude': float(longitude),  # Convert to float for map display
             'biometric_verified': biometric_verified,
             'biometric_type': biometric_type,
+            'image_path': image_path,
             'session_name': session_data['name'],
             'faculty': session_data['faculty'],
             'branch': session_data['branch'],
-            'semester': session_data['semester'],
-            'created_at': datetime.now().isoformat()
+            'semester': session_data['semester']
         }
 
         # Store attendance
@@ -284,10 +333,29 @@ def view_responses(session_id):
     responses = SESSION_RESPONSES.get(admin_username, {}).get(session_id, [])
     session_data = ACTIVE_SESSIONS.get(admin_username, {}).get(session_id, {})
     
+    # Generate QR code file path
+    qr_path = None
+    if session_data:  # Only try to handle QR if we have session data
+        qr_path = f'static/qr_codes/{session_id}.png'
+        if not os.path.exists(qr_path):
+            # Generate QR code
+            qr_code, _ = generate_session_qr(admin_username, session_id, session_data)
+            if qr_code:
+                # Save QR code
+                try:
+                    qr_data = base64.b64decode(qr_code.split(',')[1])
+                    os.makedirs('static/qr_codes', exist_ok=True)
+                    with open(qr_path, 'wb') as f:
+                        f.write(qr_data)
+                except Exception as e:
+                    print(f"Error saving QR code: {str(e)}")
+                    qr_path = None
+    
     return render_template('admin/view_responses.html', 
                          responses=responses,
                          session=session_data,
-                         session_id=session_id)
+                         session_id=session_id,
+                         qr_path=qr_path)
 
 @app.route('/admin/download-responses/<session_id>')
 @login_required
@@ -296,21 +364,23 @@ def download_responses(session_id):
     responses = SESSION_RESPONSES.get(admin_username, {}).get(session_id, [])
     
     if not responses:
-        return "No responses found", 404
+        flash('No responses found for this session.', 'warning')
+        return redirect(url_for('view_responses', session_id=session_id))
         
     # Create CSV content
     output = StringIO()
     writer = csv.writer(output)
     writer.writerow(['Student Name', 'Student ID', 'Time', 'Biometric Type', 
-                    'Location (Lat, Long)'])
+                    'Location (Lat, Long)', 'Image Path'])
     
     for resp in responses:
         writer.writerow([
-            resp['student_name'],
-            resp['student_id'],
-            resp['created_at'],
-            resp['biometric_type'],
-            f"{resp['latitude']}, {resp['longitude']}"
+            resp.get('student_name', ''),
+            resp.get('student_id', ''),
+            resp.get('created_at', ''),
+            resp.get('biometric_type', ''),
+            f"{resp.get('latitude', '')}, {resp.get('longitude', '')}",
+            resp.get('image_path', '')
         ])
     
     # Create response
@@ -319,7 +389,8 @@ def download_responses(session_id):
         output.getvalue(),
         mimetype='text/csv',
         headers={
-            'Content-Disposition': f'attachment; filename=responses_{session_id}.csv'
+            'Content-Disposition': f'attachment; filename=responses_{session_id}.csv',
+            'Content-Type': 'text/csv; charset=utf-8'
         }
     )
 
@@ -342,6 +413,35 @@ def delete_session(session_id):
             del SESSION_RESPONSES[admin_username][session_id]
         return jsonify({'success': True})
     return jsonify({'error': 'Session not found'}), 404
+
+@app.route('/static/qr_codes/<path:filename>')
+def serve_qr(filename):
+    try:
+        # Get session details from filename
+        session_id = filename.split('.')[0]  # Remove .png extension
+        admin_username = session.get('admin_username')
+        session_data = ACTIVE_SESSIONS.get(admin_username, {}).get(session_id, {})
+        
+        # Set custom filename with session details
+        custom_filename = f"{session_data.get('name', 'session')}_qr.png"
+        
+        return send_file(
+            f'static/qr_codes/{filename}', 
+            mimetype='image/png',
+            as_attachment=True,
+            download_name=custom_filename
+        )
+    except Exception as e:
+        print(f"Error serving QR code: {str(e)}")
+        return "QR code not found", 404
+
+@app.route('/static/uploads/<path:filename>')
+def serve_image(filename):
+    try:
+        return send_file(f'static/uploads/{filename}', mimetype='image/jpeg')
+    except Exception as e:
+        print(f"Error serving image: {str(e)}")
+        return "Image not found", 404
 
 if __name__ == '__main__':
     app.run(debug=True)
