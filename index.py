@@ -33,24 +33,24 @@ def save_credentials(data):
         json.dump(data, f, indent=4)
 
 # Initialize storage using Flask app context
-app.admins = load_credentials()  # username -> {password_hash, created_at}
-app.active_sessions = {}  # admin_username -> {session_id -> session_data}
-app.session_responses = {}  # admin_username -> {session_id -> [responses]}
-app.attendance_records = []  # Store attendance records with verification data
+app.config['ADMINS'] = load_credentials()  # username -> {password_hash, created_at}
+app.config['ACTIVE_SESSIONS'] = {}  # admin_username -> {session_id -> session_data}
+app.config['SESSION_RESPONSES'] = {}  # admin_username -> {session_id -> [responses]}
+app.config['ATTENDANCE_RECORDS'] = []  # Store attendance records with verification data
 
 # Helper functions for session data
 def get_admin_sessions(admin_username):
-    return app.active_sessions.get(admin_username, {})
+    return app.config['ACTIVE_SESSIONS'].get(admin_username, {})
 
 def get_session_responses(admin_username, session_id):
-    return app.session_responses.get(admin_username, {}).get(session_id, [])
+    return app.config['SESSION_RESPONSES'].get(admin_username, {}).get(session_id, [])
 
 def add_session_response(admin_username, session_id, response):
-    if admin_username not in app.session_responses:
-        app.session_responses[admin_username] = {}
-    if session_id not in app.session_responses[admin_username]:
-        app.session_responses[admin_username][session_id] = []
-    app.session_responses[admin_username][session_id].append(response)
+    if admin_username not in app.config['SESSION_RESPONSES']:
+        app.config['SESSION_RESPONSES'][admin_username] = {}
+    if session_id not in app.config['SESSION_RESPONSES'][admin_username]:
+        app.config['SESSION_RESPONSES'][admin_username][session_id] = []
+    app.config['SESSION_RESPONSES'][admin_username][session_id].append(response)
 
 # Initialize sessions for existing admins
 for username in ADMINS:
