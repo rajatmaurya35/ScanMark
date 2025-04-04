@@ -35,7 +35,16 @@ def save_credentials(data):
 # Initialize storage
 ADMINS = load_credentials()  # username -> {password_hash, created_at}
 ACTIVE_SESSIONS = {}  # admin_username -> {session_id -> session_data}
-SESSION_RESPONSES = {}  # admin_username -> {session_id -> [responses]}
+# Use app-level storage instead of global variables
+def get_session_responses():
+    return app.response_data
+
+def set_session_response(admin_username, session_id, response):
+    if admin_username not in app.response_data:
+        app.response_data[admin_username] = {}
+    if session_id not in app.response_data[admin_username]:
+        app.response_data[admin_username][session_id] = []
+    app.response_data[admin_username][session_id].append(response)  # admin_username -> {session_id -> [responses]}
 ATTENDANCE_RECORDS = []  # Store attendance records with verification data
 
 # Initialize sessions for existing admins
