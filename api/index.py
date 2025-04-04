@@ -1,8 +1,8 @@
-from flask import Flask
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-app = Flask(__name__)
+from index import app
 
-@app.route('/', defaults={'path': ''})
-@app.route('/<path:path>')
-def catch_all(path):
-    return app.send_from_directory('..', 'index.py')
+if __name__ == '__main__':
+    app.run()
