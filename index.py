@@ -18,19 +18,22 @@ import uuid
 app = Flask(__name__)
 app.secret_key = secrets.token_hex(16)
 
-# Initialize default admin for demo
-DEFAULT_PASSWORD = 'admin123'
-DEFAULT_ADMIN = {
-    'username': 'admin',
-    'password': DEFAULT_PASSWORD,  # Store plain password for demo
-    'created_at': datetime.now().isoformat()
-}
-
-# Initialize storage using Flask app context
-app.config['ADMINS'] = {'admin': DEFAULT_ADMIN}  # username -> {password_hash, created_at}
-app.config['ACTIVE_SESSIONS'] = {'admin': {}}  # admin_username -> {session_id -> session_data}
-app.config['SESSION_RESPONSES'] = {'admin': {}}  # admin_username -> {session_id -> [responses]}
-app.config['ATTENDANCE_RECORDS'] = []  # Store attendance records with verification data
+# Initialize storage
+if not hasattr(app, 'initialized'):
+    # Default admin
+    DEFAULT_PASSWORD = 'admin123'
+    DEFAULT_ADMIN = {
+        'username': 'admin',
+        'password': DEFAULT_PASSWORD,
+        'created_at': datetime.now().isoformat()
+    }
+    
+    # Initialize persistent storage
+    app.config['ADMINS'] = {'admin': DEFAULT_ADMIN}
+    app.config['ACTIVE_SESSIONS'] = {'admin': {}}
+    app.config['SESSION_RESPONSES'] = {'admin': {}}
+    app.config['ATTENDANCE_RECORDS'] = []
+    app.initialized = True
 
 # Configure Flask app
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
@@ -327,13 +330,13 @@ def submit_attendance():
         session_id = request.form.get('session_id')
 
         # Validate required fields
-        if not all([student_id, student_name, latitude, longitude, biometric_verified, admin_username, session_id]):
+        if not all([student_id, student_name, admin_username, session_id]):
             return jsonify({
                 'success': False,
-                'message': 'All fields and verifications are required'
+                'message': 'Student ID and name are required'
             }), 400
 
-        # Check if session exists and is active
+        # Check if session exists
         if admin_username not in app.config['ACTIVE_SESSIONS'] or session_id not in app.config['ACTIVE_SESSIONS'][admin_username]:
             return jsonify({
                 'success': False,
@@ -341,44 +344,19 @@ def submit_attendance():
             }), 404
 
         session_data = app.config['ACTIVE_SESSIONS'][admin_username][session_id]
-        if not session_data.get('active', False):
-            return jsonify({
-                'success': False,
-                'message': 'Session is not active'
-            }), 403
+        
+        # Always allow attendance in demo mode
+        session_data['active'] = True
 
-        # Handle image upload
-        image_path = None
-        if 'captured_image' in request.files:
-            try:
-                image = request.files['captured_image']
-                if image and image.filename:
-                    # Create a unique filename using timestamp and student ID
-                    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-                    filename = f'capture_{student_id}_{timestamp}.jpg'
-                    
-                    # Ensure uploads directory exists
-                    upload_dir = os.path.join('static', 'uploads')
-                    os.makedirs(upload_dir, exist_ok=True)
-                    
-                    # Save the image
-                    full_path = os.path.join(upload_dir, filename)
-                    image.save(full_path)
-                    image_path = f'uploads/{filename}'
-                    print(f'Image saved to: {full_path}')
-            except Exception as e:
-                print(f'Error saving image: {str(e)}')
-
-        # Prepare attendance data with proper location formatting
+        # Prepare attendance data
         attendance_data = {
             'student_name': student_name,
             'student_id': student_id,
             'created_at': datetime.now().isoformat(),
-            'latitude': float(latitude),  # Convert to float for map display
-            'longitude': float(longitude),  # Convert to float for map display
+            'latitude': float(latitude) if latitude else 0,
+            'longitude': float(longitude) if longitude else 0,
             'biometric_verified': biometric_verified,
             'biometric_type': biometric_type,
-            'image_path': image_path,
             'session_name': session_data['name'],
             'faculty': session_data['faculty'],
             'branch': session_data['branch'],
