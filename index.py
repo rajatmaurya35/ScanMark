@@ -12,13 +12,11 @@ import csv
 from io import StringIO
 import json
 from pathlib import Path
+import uuid
 
+# Initialize Flask app
 app = Flask(__name__)
 app.secret_key = secrets.token_hex(16)
-
-# Create required directories
-for path in ['static/uploads', 'static/qr_codes']:
-    Path(path).mkdir(parents=True, exist_ok=True)
 
 # Load credentials from file
 def load_credentials():
@@ -28,15 +26,31 @@ def load_credentials():
     except (FileNotFoundError, json.JSONDecodeError):
         return {}
 
-def save_credentials(data):
+def save_credentials():
     with open('credentials.json', 'w') as f:
-        json.dump(data, f, indent=4)
+        json.dump(app.config['ADMINS'], f, indent=4)
 
 # Initialize storage using Flask app context
 app.config['ADMINS'] = load_credentials()  # username -> {password_hash, created_at}
 app.config['ACTIVE_SESSIONS'] = {}  # admin_username -> {session_id -> session_data}
 app.config['SESSION_RESPONSES'] = {}  # admin_username -> {session_id -> [responses]}
 app.config['ATTENDANCE_RECORDS'] = []  # Store attendance records with verification data
+
+# Initialize sessions for existing admins
+for username in app.config['ADMINS']:
+    app.config['ACTIVE_SESSIONS'][username] = {}
+    app.config['SESSION_RESPONSES'][username] = {}
+
+# Configure Flask app
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
+app.config['UPLOAD_FOLDER'] = 'static'
+
+# Ensure upload folder exists
+os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+
+# Create required directories
+for path in ['static/uploads', 'static/qr_codes']:
+    Path(path).mkdir(parents=True, exist_ok=True)
 
 # Helper functions for session data
 def get_admin_sessions(admin_username):
@@ -51,11 +65,6 @@ def add_session_response(admin_username, session_id, response):
     if session_id not in app.config['SESSION_RESPONSES'][admin_username]:
         app.config['SESSION_RESPONSES'][admin_username][session_id] = []
     app.config['SESSION_RESPONSES'][admin_username][session_id].append(response)
-
-# Initialize sessions for existing admins
-for username in ADMINS:
-    ACTIVE_SESSIONS[username] = {}
-    SESSION_RESPONSES[username] = {}
 
 def hash_password(password):
     salt = os.urandom(32)
@@ -91,21 +100,21 @@ def admin_register():
             flash('Username and password are required.', 'error')
             return redirect(url_for('admin_register'))
             
-        if username in ADMINS:
+        if username in app.config['ADMINS']:
             flash('Username already exists.', 'error')
             return redirect(url_for('admin_register'))
             
-        ADMINS[username] = {
+        app.config['ADMINS'][username] = {
             'password_hash': hash_password(password),
             'created_at': datetime.now().isoformat()
         }
         
         # Save credentials to file
-        save_credentials(ADMINS)
+        save_credentials()
         
         # Initialize admin's session storage
-        ACTIVE_SESSIONS[username] = {}
-        SESSION_RESPONSES[username] = {}
+        app.config['ACTIVE_SESSIONS'][username] = {}
+        app.config['SESSION_RESPONSES'][username] = {}
         
         flash('Registration successful! Please log in.', 'success')
         return redirect(url_for('admin_login'))
@@ -118,7 +127,7 @@ def admin_login():
         username = request.form.get('username')
         password = request.form.get('password')
         
-        if username in ADMINS and verify_password(password, ADMINS[username]['password_hash']):
+        if username in app.config['ADMINS'] and verify_password(password, app.config['ADMINS'][username]['password_hash']):
             session['admin_username'] = username
             return redirect(url_for('admin_dashboard'))
             
@@ -139,7 +148,7 @@ def admin_dashboard():
     active_sessions = []
     
     # Get only this admin's sessions
-    for session_id, session_data in ACTIVE_SESSIONS[admin_username].items():
+    for session_id, session_data in app.config['ACTIVE_SESSIONS'][admin_username].items():
         # Regenerate QR if not present
         if 'qr_code' not in session_data or not session_data['qr_code']:
             qr_code, form_url = generate_session_qr(admin_username, session_id, session_data)
@@ -190,9 +199,9 @@ def generate_qr():
     session_data['form_url'] = form_url
     
     # Store in admin's sessions
-    if admin_username not in ACTIVE_SESSIONS:
-        ACTIVE_SESSIONS[admin_username] = {}
-    ACTIVE_SESSIONS[admin_username][session_id] = session_data
+    if admin_username not in app.config['ACTIVE_SESSIONS']:
+        app.config['ACTIVE_SESSIONS'][admin_username] = {}
+    app.config['ACTIVE_SESSIONS'][admin_username][session_id] = session_data
     
     return jsonify({
         'success': True,
@@ -204,13 +213,83 @@ def generate_qr():
         }
     })
 
+@app.route('/create_session', methods=['POST'])
+def create_session():
+    if 'admin_username' not in session:
+        return jsonify({'error': 'Not logged in'}), 401
+    
+    admin_username = session['admin_username']
+    
+    # Get session details from form
+    session_name = request.form.get('session_name')
+    faculty_name = request.form.get('faculty_name')
+    branch = request.form.get('branch')
+    semester = request.form.get('semester')
+    
+    if not all([session_name, faculty_name, branch, semester]):
+        return jsonify({'error': 'All fields are required'}), 400
+    
+    try:
+        # Generate unique session ID
+        session_id = str(uuid.uuid4())
+        
+        # Create session data
+        session_data = {
+            'name': session_name,
+            'faculty': faculty_name,
+            'branch': branch,
+            'semester': semester,
+            'created_at': datetime.now().isoformat(),
+            'qr_code': None,
+            'form_url': None
+        }
+        
+        # Ensure static directory exists
+        os.makedirs('static', exist_ok=True)
+        
+        # Generate QR code
+        form_url = url_for('attendance_form', admin=admin_username, session=session_id, _external=True)
+        qr = segno.make(form_url)
+        
+        # Save QR code with unique filename
+        qr_filename = f"qr_{admin_username}_{session_id}.png"
+        qr_path = os.path.join('static', qr_filename)
+        qr.save(qr_path, scale=10)
+        
+        # Update session data
+        session_data['qr_code'] = qr_filename
+        session_data['form_url'] = form_url
+        
+        # Initialize session storage if needed
+        if admin_username not in app.config['ACTIVE_SESSIONS']:
+            app.config['ACTIVE_SESSIONS'][admin_username] = {}
+            
+        if admin_username not in app.config['SESSION_RESPONSES']:
+            app.config['SESSION_RESPONSES'][admin_username] = {}
+            
+        # Store session data
+        app.config['ACTIVE_SESSIONS'][admin_username][session_id] = session_data
+        app.config['SESSION_RESPONSES'][admin_username][session_id] = []
+        
+        return jsonify({
+            'success': True,
+            'message': 'Session created successfully',
+            'session_id': session_id,
+            'qr_code': qr_filename,
+            'form_url': form_url
+        })
+        
+    except Exception as e:
+        app.logger.error(f"Error creating session: {str(e)}")
+        return jsonify({'error': 'Failed to generate QR code'}), 500
+
 def generate_session_qr(admin_username, session_id, session_data):
     """Generate QR code for a session with pre-filled form fields"""
-    if admin_username not in SESSION_RESPONSES:
-        SESSION_RESPONSES[admin_username] = {}
+    if admin_username not in app.config['SESSION_RESPONSES']:
+        app.config['SESSION_RESPONSES'][admin_username] = {}
     
-    if session_id not in SESSION_RESPONSES[admin_username]:
-        SESSION_RESPONSES[admin_username][session_id] = []
+    if session_id not in app.config['SESSION_RESPONSES'][admin_username]:
+        app.config['SESSION_RESPONSES'][admin_username][session_id] = []
     
     try:
         # Generate attendance form URL with proper parameters
@@ -241,8 +320,8 @@ def submit_attendance():
         admin_username = request.args.get('admin')
         
         if admin_username and session_id:
-            if admin_username in ACTIVE_SESSIONS and session_id in ACTIVE_SESSIONS[admin_username]:
-                session_data = ACTIVE_SESSIONS[admin_username][session_id]
+            if admin_username in app.config['ACTIVE_SESSIONS'] and session_id in app.config['ACTIVE_SESSIONS'][admin_username]:
+                session_data = app.config['ACTIVE_SESSIONS'][admin_username][session_id]
                 return render_template('attendance_form.html', 
                                     session=session_data,
                                     admin_username=admin_username,
@@ -269,13 +348,13 @@ def submit_attendance():
             }), 400
 
         # Check if session exists and is active
-        if admin_username not in ACTIVE_SESSIONS or session_id not in ACTIVE_SESSIONS[admin_username]:
+        if admin_username not in app.config['ACTIVE_SESSIONS'] or session_id not in app.config['ACTIVE_SESSIONS'][admin_username]:
             return jsonify({
                 'success': False,
                 'message': 'Session not found'
             }), 404
 
-        session_data = ACTIVE_SESSIONS[admin_username][session_id]
+        session_data = app.config['ACTIVE_SESSIONS'][admin_username][session_id]
         if not session_data.get('active', False):
             return jsonify({
                 'success': False,
@@ -321,12 +400,12 @@ def submit_attendance():
         }
 
         # Store attendance
-        if admin_username not in SESSION_RESPONSES:
-            SESSION_RESPONSES[admin_username] = {}
-        if session_id not in SESSION_RESPONSES[admin_username]:
-            SESSION_RESPONSES[admin_username][session_id] = []
+        if admin_username not in app.config['SESSION_RESPONSES']:
+            app.config['SESSION_RESPONSES'][admin_username] = {}
+        if session_id not in app.config['SESSION_RESPONSES'][admin_username]:
+            app.config['SESSION_RESPONSES'][admin_username][session_id] = []
         
-        SESSION_RESPONSES[admin_username][session_id].append(attendance_data)
+        app.config['SESSION_RESPONSES'][admin_username][session_id].append(attendance_data)
         
         return jsonify({
             'success': True,
@@ -344,8 +423,8 @@ def submit_attendance():
 @login_required
 def view_responses(session_id):
     admin_username = session.get('admin_username')
-    responses = SESSION_RESPONSES.get(admin_username, {}).get(session_id, [])
-    session_data = ACTIVE_SESSIONS.get(admin_username, {}).get(session_id, {})
+    responses = app.config['SESSION_RESPONSES'].get(admin_username, {}).get(session_id, [])
+    session_data = app.config['ACTIVE_SESSIONS'].get(admin_username, {}).get(session_id, {})
     
     # Generate QR code file path
     qr_path = None
@@ -375,7 +454,7 @@ def view_responses(session_id):
 @login_required
 def download_responses(session_id):
     admin_username = session.get('admin_username')
-    responses = SESSION_RESPONSES.get(admin_username, {}).get(session_id, [])
+    responses = app.config['SESSION_RESPONSES'].get(admin_username, {}).get(session_id, [])
     
     if not responses:
         flash('No responses found for this session.', 'warning')
@@ -412,19 +491,19 @@ def download_responses(session_id):
 @login_required
 def toggle_session(session_id):
     admin_username = session['admin_username']
-    if session_id in ACTIVE_SESSIONS[admin_username]:
-        ACTIVE_SESSIONS[admin_username][session_id]['active'] = not ACTIVE_SESSIONS[admin_username][session_id]['active']
-        return jsonify({'success': True, 'active': ACTIVE_SESSIONS[admin_username][session_id]['active']})
+    if session_id in app.config['ACTIVE_SESSIONS'][admin_username]:
+        app.config['ACTIVE_SESSIONS'][admin_username][session_id]['active'] = not app.config['ACTIVE_SESSIONS'][admin_username][session_id]['active']
+        return jsonify({'success': True, 'active': app.config['ACTIVE_SESSIONS'][admin_username][session_id]['active']})
     return jsonify({'error': 'Session not found'}), 404
 
 @app.route('/admin/delete-session/<session_id>', methods=['POST'])
 @login_required
 def delete_session(session_id):
     admin_username = session['admin_username']
-    if session_id in ACTIVE_SESSIONS[admin_username]:
-        del ACTIVE_SESSIONS[admin_username][session_id]
-        if session_id in SESSION_RESPONSES[admin_username]:
-            del SESSION_RESPONSES[admin_username][session_id]
+    if session_id in app.config['ACTIVE_SESSIONS'][admin_username]:
+        del app.config['ACTIVE_SESSIONS'][admin_username][session_id]
+        if session_id in app.config['SESSION_RESPONSES'][admin_username]:
+            del app.config['SESSION_RESPONSES'][admin_username][session_id]
         return jsonify({'success': True})
     return jsonify({'error': 'Session not found'}), 404
 
@@ -434,7 +513,7 @@ def serve_qr(filename):
         # Get session details from filename
         session_id = filename.split('.')[0]  # Remove .png extension
         admin_username = session.get('admin_username')
-        session_data = ACTIVE_SESSIONS.get(admin_username, {}).get(session_id, {})
+        session_data = app.config['ACTIVE_SESSIONS'].get(admin_username, {}).get(session_id, {})
         
         # Set custom filename with session details
         custom_filename = f"{session_data.get('name', 'session')}_qr.png"

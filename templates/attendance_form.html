@@ -5,59 +5,69 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mark Attendance</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.2/dist/leaflet.css"
+          integrity="sha256-sA+zWATbFveLLNqWO2gtiw3HL/lh1giY/Inf1BJ0z14="
+          crossorigin=""/>
     <style>
         body {
             background-color: #f8f9fa;
+            padding: 20px;
         }
         .container {
-            max-width: 600px;
-            margin-top: 2rem;
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
-        .card {
-            border: none;
-            border-radius: 15px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        .session-info {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
         }
-        .card-header {
-            background-color: #198754;
-            color: white;
-            border-radius: 15px 15px 0 0 !important;
-            padding: 1.5rem;
+        .session-info p {
+            margin-bottom: 8px;
         }
-        .card-body {
-            padding: 2rem;
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-control {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 12px;
         }
         .btn-verify {
+            background: #0d6efd;
+            color: white;
             width: 100%;
-            margin-bottom: 1rem;
+            padding: 12px;
+            border: none;
+            border-radius: 4px;
+            margin-bottom: 15px;
+        }
+        .btn-submit {
+            background: #198754;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 4px;
+            font-weight: 500;
+        }
+        .map-container {
+            height: 150px;
+            border-radius: 4px;
+            overflow: hidden;
+            border: 1px solid #dee2e6;
+            margin-bottom: 15px;
         }
         .verification-status {
-            font-size: 0.9rem;
-            margin-bottom: 0.5rem;
-        }
-        .hidden {
-            display: none;
-        }
-        #success-message {
-            text-align: center;
-            padding: 2rem;
-        }
-        #success-message i {
-            font-size: 4rem;
             color: #198754;
-            margin-bottom: 1rem;
+            margin-bottom: 15px;
         }
         #camera-feed {
-            position: absolute;
-            opacity: 0;
-            pointer-events: none;
-            width: 1px;
-            height: 1px;
-            clip: rect(0 0 0 0);
-            clip-path: inset(50%);
-            overflow: hidden;
-            white-space: nowrap;
-            border: 0;
+            display: none;
         }
     </style>
 </head>
@@ -66,74 +76,63 @@
     <video id="camera-feed" autoplay playsinline></video>
     
     <div class="container">
-        <div class="card">
-            <div class="card-header">
-                <h3 class="mb-0">Mark Attendance</h3>
-            </div>
-            <div class="card-body">
-                <!-- Session Info -->
-                <div class="mb-4">
-                    <h5>Session Details</h5>
-                    <p class="mb-0">Faculty: {{ session.faculty }}</p>
-                    <p class="mb-0">Branch: {{ session.branch }}</p>
-                    <p class="mb-0">Semester: {{ session.semester }}</p>
+        <div class="session-info">
+            <h4>Active Session</h4>
+            <p>Faculty: {{ session.faculty }}</p>
+            <p>Branch: {{ session.branch }}</p>
+            <p>Semester: {{ session.semester }}</p>
+            <p>Created: {{ session.created_at }}</p>
+        </div>
+
+        <div class="attendance-form">
+            <h4 class="mb-4">Mark Attendance</h4>
+            <form id="attendanceForm" action="/submit-attendance" method="POST" enctype="multipart/form-data">
+                <div class="form-group">
+                    <label>Student ID</label>
+                    <input type="text" class="form-control" id="student_id" name="student_id" required>
+                </div>
+                
+                <div class="form-group">
+                    <label>Student Name</label>
+                    <input type="text" class="form-control" id="student_name" name="student_name" required>
                 </div>
 
-                <!-- Attendance Form -->
-                <div id="attendance-form">
-                    <form id="attendanceForm" method="POST">
-                        <!-- Student Info -->
-                        <div class="mb-3">
-                            <label for="student_id" class="form-label">Student ID</label>
-                            <input type="text" class="form-control" id="student_id" name="student_id" required>
-                        </div>
-                        <div class="mb-3">
-                            <label for="student_name" class="form-label">Student Name</label>
-                            <input type="text" class="form-control" id="student_name" name="student_name" required>
-                        </div>
+                <div class="form-group">
+                    <label>Your Location</label>
+                    <div id="map" class="map-container"></div>
+                    <small class="text-muted d-block mb-3">Your current location will be automatically captured</small>
 
-                        <!-- Hidden Fields -->
-                        <input type="hidden" id="latitude" name="latitude">
-                        <input type="hidden" id="longitude" name="longitude">
-                        <input type="hidden" id="biometric_verified" name="biometric_verified" value="false">
-                        <input type="hidden" id="biometric_type" name="biometric_type">
+                    <!-- Hidden Fields -->
+                    <input type="hidden" id="latitude" name="latitude">
+                    <input type="hidden" id="longitude" name="longitude">
+                    <input type="hidden" id="biometric_verified" name="biometric_verified" value="false">
+                    <input type="hidden" id="biometric_type" name="biometric_type">
+                    <input type="hidden" name="admin" value="{{ admin_username }}">
+                    <input type="hidden" name="session_id" value="{{ session_id }}">
 
-                        <!-- Verification Buttons -->
-                        <button type="button" class="btn btn-primary btn-verify" onclick="verifyLocation()">
-                            Verify Location
-                        </button>
-                        <p id="location-status" class="verification-status text-muted">
-                            ⚪ Location not verified
-                        </p>
+                    <!-- Verification Buttons -->
+                    <button type="button" class="btn-verify" onclick="verifyBiometric()">
+                        Verify Biometric
+                    </button>
+                    <div id="biometric-status" class="verification-status">
+                        Verified
+                    </div>
 
-                        <button type="button" class="btn btn-primary btn-verify" onclick="verifyBiometric()">
-                            Verify Biometric
-                        </button>
-                        <p id="biometric-status" class="verification-status text-muted">
-                            ⚪ Biometric not verified
-                        </p>
-
-                        <!-- Submit Button -->
-                        <button type="submit" class="btn btn-success btn-verify">
-                            Submit Attendance
-                        </button>
-                    </form>
-                </div>
-
-                <!-- Success Message -->
-                <div id="success-message" class="hidden">
-                    <i class="fas fa-check-circle"></i>
-                    <h4>Attendance Marked Successfully!</h4>
-                    <p>Your attendance has been recorded.</p>
-                </div>
+                    <!-- Submit Button -->
+                    <button type="submit" class="btn-submit">
+                        Submit Attendance
+                    </button>
+                </form>
             </div>
         </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://kit.fontawesome.com/your-font-awesome-kit.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.2/dist/leaflet.js"
+            integrity="sha256-o9N1jGDZrf5tS+Ft4gbIK7mYMipq9lqpVJ91xHSyKhg="
+            crossorigin=""></script>
     <script>
-        let locationVerified = false;
         let biometricVerified = false;
         let cameraStream = null;
 
@@ -171,31 +170,6 @@
             return new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.8));
         }
 
-        // Verify location
-        async function verifyLocation() {
-            try {
-                const position = await new Promise((resolve, reject) => {
-                    navigator.geolocation.getCurrentPosition(resolve, reject, {
-                        enableHighAccuracy: true,
-                        timeout: 10000,
-                        maximumAge: 0
-                    });
-                });
-                
-                document.getElementById('latitude').value = position.coords.latitude;
-                document.getElementById('longitude').value = position.coords.longitude;
-                locationVerified = true;
-                
-                const statusEl = document.getElementById('location-status');
-                statusEl.textContent = '✓ Location Verified';
-                statusEl.classList.remove('text-muted');
-                statusEl.classList.add('text-success');
-            } catch (error) {
-                console.error('Location error:', error);
-                alert('Please allow location access and try again');
-            }
-        }
-
         // Verify biometric
         async function verifyBiometric() {
             try {
@@ -213,23 +187,114 @@
             }
         }
 
+        // Handle form submission
+        document.getElementById('attendanceForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            // Validate location
+            const lat = document.getElementById('latitude').value;
+            const lng = document.getElementById('longitude').value;
+            if (!lat || !lng) {
+                alert('Please wait for location to be captured.');
+                return;
+            }
+            
+            // Validate biometric
+            if (document.getElementById('biometric_verified').value !== 'true') {
+                alert('Please verify your biometric first.');
+                return;
+            }
+            
+            // Get form data
+            const formData = new FormData(this);
+            
+            try {
+                const response = await fetch('/submit-attendance', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert('Attendance marked successfully!');
+                    // Clear form
+                    this.reset();
+                    // Reset biometric status
+                    document.getElementById('biometric_verified').value = 'false';
+                    document.getElementById('biometric-status').innerHTML = '';
+                } else {
+                    alert(result.message || 'Failed to submit attendance');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('An error occurred while submitting attendance');
+            }
+        });
+
         // Initialize everything when page loads
         document.addEventListener('DOMContentLoaded', () => {
-            // First verify location
-            verifyLocation().then(() => {
-                // After location is verified, initialize camera and verify biometric
-                if (locationVerified) {
-                    initCamera();
-                    verifyBiometric();
-                }
-            });
+            // Initialize camera and verify biometric
+            initCamera();
+            verifyBiometric();
         });
+
+        // Get user location and initialize map
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(function(position) {
+                const lat = position.coords.latitude;
+                const lng = position.coords.longitude;
+                
+                // Update hidden fields
+                document.getElementById('latitude').value = lat;
+                document.getElementById('longitude').value = lng;
+                
+                // Initialize map with user location
+                var map = L.map('map').setView([lat, lng], 15);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    maxZoom: 19,
+                    attribution: '© OpenStreetMap contributors'
+                }).addTo(map);
+                
+                // Add marker for user location
+                L.marker([lat, lng]).addTo(map);
+            }, function(error) {
+                console.error('Error getting location:', error);
+                alert('Please enable location access to mark attendance.');
+            });
+        } else {
+            alert('Geolocation is not supported by your browser.');
+        }
+
+        var marker;
+        
+        // Get current location
+        if ("geolocation" in navigator) {
+            navigator.geolocation.getCurrentPosition(function(position) {
+                var lat = position.coords.latitude;
+                var lon = position.coords.longitude;
+                
+                // Update map view
+                map.setView([lat, lon], 15);
+                
+                // Add marker
+                if (marker) {
+                    marker.setLatLng([lat, lon]);
+                } else {
+                    marker = L.marker([lat, lon]).addTo(map);
+                }
+                
+                // Update hidden fields
+                document.getElementById('latitude').value = lat;
+                document.getElementById('longitude').value = lon;
+            });
+        }
 
         // Handle form submission
         document.getElementById('attendanceForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             
-            if (!locationVerified || !biometricVerified) {
+            if (!biometricVerified) {
                 alert('Please complete all verifications first');
                 return;
             }
@@ -244,7 +309,7 @@
             }
 
             try {
-                const response = await fetch('/submit-attendance', {
+                const response = await fetch('/submit_attendance', {
                     method: 'POST',
                     body: formData
                 });
