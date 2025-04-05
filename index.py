@@ -19,9 +19,10 @@ app = Flask(__name__)
 app.secret_key = secrets.token_hex(16)
 
 # Initialize default admin for demo
+DEFAULT_PASSWORD = 'admin123'
 DEFAULT_ADMIN = {
     'username': 'admin',
-    'password_hash': hashlib.pbkdf2_hmac('sha256', 'admin123'.encode('utf-8'), b'salt', 100000).hex(),
+    'password': DEFAULT_PASSWORD,  # Store plain password for demo
     'created_at': datetime.now().isoformat()
 }
 
@@ -112,7 +113,7 @@ def admin_login():
         username = request.form.get('username')
         password = request.form.get('password')
         
-        if username in app.config['ADMINS'] and verify_password(password, app.config['ADMINS'][username]['password_hash']):
+        if username in app.config['ADMINS'] and password == app.config['ADMINS'][username]['password']:
             session['admin_username'] = username
             return redirect(url_for('admin_dashboard'))
             
