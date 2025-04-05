@@ -18,39 +18,24 @@ import uuid
 app = Flask(__name__)
 app.secret_key = secrets.token_hex(16)
 
-# Load credentials from file
-def load_credentials():
-    try:
-        with open('credentials.json', 'r') as f:
-            return json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
-        return {}
-
-def save_credentials():
-    with open('credentials.json', 'w') as f:
-        json.dump(app.config['ADMINS'], f, indent=4)
+# Initialize default admin for demo
+DEFAULT_ADMIN = {
+    'username': 'admin',
+    'password_hash': hashlib.pbkdf2_hmac('sha256', 'admin123'.encode('utf-8'), b'salt', 100000).hex(),
+    'created_at': datetime.now().isoformat()
+}
 
 # Initialize storage using Flask app context
-app.config['ADMINS'] = load_credentials()  # username -> {password_hash, created_at}
-app.config['ACTIVE_SESSIONS'] = {}  # admin_username -> {session_id -> session_data}
-app.config['SESSION_RESPONSES'] = {}  # admin_username -> {session_id -> [responses]}
+app.config['ADMINS'] = {'admin': DEFAULT_ADMIN}  # username -> {password_hash, created_at}
+app.config['ACTIVE_SESSIONS'] = {'admin': {}}  # admin_username -> {session_id -> session_data}
+app.config['SESSION_RESPONSES'] = {'admin': {}}  # admin_username -> {session_id -> [responses]}
 app.config['ATTENDANCE_RECORDS'] = []  # Store attendance records with verification data
-
-# Initialize sessions for existing admins
-for username in app.config['ADMINS']:
-    app.config['ACTIVE_SESSIONS'][username] = {}
-    app.config['SESSION_RESPONSES'][username] = {}
 
 # Configure Flask app
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
-app.config['UPLOAD_FOLDER'] = 'static'
+app.config['UPLOAD_FOLDER'] = '/tmp'  # Use /tmp for Vercel
 
-# Ensure upload folder exists
-os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-
-# Create required directories
-for path in ['static/uploads', 'static/qr_codes']:
-    Path(path).mkdir(parents=True, exist_ok=True)
+# No need to create directories in serverless environment
 
 # Helper functions for session data
 def get_admin_sessions(admin_username):
