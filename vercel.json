@@ -1,4 +1,5 @@
 {
+    "version": 2,
     "builds": [
         {
             "src": "index.py",
@@ -16,7 +17,11 @@
         },
         {
             "src": "/(.*)",
-            "dest": "/index.py"
+            "dest": "index.py"
         }
-    ]
+    ],
+    "env": {
+        "FLASK_APP": "index.py",
+        "FLASK_ENV": "production"
+    }
 }
