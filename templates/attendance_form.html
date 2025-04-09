@@ -486,8 +486,27 @@
                     return;
                 }
                 
-                // Submit the form
-                this.submit();
+                // Submit the form using fetch
+                const formData = new FormData(this);
+                try {
+                    const response = await fetch('/submit-attendance', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        // Show success message and close window
+                        alert('Attendance marked successfully!');
+                        window.close();
+                    } else {
+                        alert(result.message || 'Error marking attendance');
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                    alert('An error occurred. Please try again.');
+                }
             });
         });
     </script>

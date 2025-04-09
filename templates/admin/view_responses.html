@@ -18,10 +18,11 @@
             box-shadow: 0 .5rem 1rem rgba(0,0,0,.1)!important;
         }
         .map-container {
-            height: 300px;
-            border-radius: 8px;
+            height: 150px;
+            border-radius: 4px;
             overflow: hidden;
-            margin: 10px 0;
+            border: 1px solid #dee2e6;
+            margin-bottom: 15px;
         }
         .session-info {
             background: rgba(var(--bs-primary-rgb), 0.05);
@@ -162,20 +163,15 @@
                             <!-- Location Map -->
                             {% if response.latitude and response.longitude %}
                             <div class="col-12">
-                                <div class="row">
-                                    <div class="col-12 d-flex align-items-center mb-2">
-                                        <i class="fas fa-map-marker-alt text-danger me-2"></i>
-                                        <h6 class="mb-0">Your Location</h6>
-                                    </div>
-                                    <div class="col-12">
-                                        <div class="map-container" id="map-{{ loop.index }}"></div>
-                                    </div>
-                                    <div class="col-12 mt-2">
+                                <div class="form-group mb-4">
+                                    <label><i class="fas fa-map-marker-alt"></i> Your Location</label>
+                                    <div id="map-{{ loop.index }}" class="map-container"></div>
+                                    <div id="address-display-{{ loop.index }}" class="mt-2 mb-2 p-2 bg-light rounded">
                                         <p class="mb-0">{{ response.address }}</p>
-                                        <small class="text-muted d-block mt-1">
-                                            <i class="fas fa-location-dot me-1"></i>{{ response.latitude }}, {{ response.longitude }}
-                                        </small>
                                     </div>
+                                    <small class="text-muted d-block mb-3">
+                                        <i class="fas fa-location-dot me-1"></i>{{ response.latitude }}, {{ response.longitude }}
+                                    </small>
                                 </div>
                             </div>
                             {% endif %}
