@@ -323,45 +323,52 @@ def submit_attendance():
             
     elif request.method == 'POST':
         try:
-            # Get session details
+            # Get form data
+            enrollment_no = request.form.get('enrollment_no')
+            student_name = request.form.get('student_name')
             session_id = request.form.get('session_id')
-            admin_username = request.form.get('admin_username')
+            admin_username = request.form.get('admin')
+            latitude = request.form.get('latitude')
+            longitude = request.form.get('longitude')
+            address = request.form.get('address')
+            biometric_verified = request.form.get('biometric_verified')
             
-            if not session_id or not admin_username:
+            print(f"Received attendance data: {request.form}")
+            
+            # Validate required fields
+            if not all([enrollment_no, student_name, session_id, admin_username]):
                 return jsonify({
                     'success': False,
-                    'message': 'Missing session ID or admin username'
+                    'message': 'Please fill in all required fields'
                 }), 400
-                
+            
+            # Validate location
+            if not all([latitude, longitude, address]):
+                return jsonify({
+                    'success': False,
+                    'message': 'Location information is required'
+                }), 400
+            
+            # Validate face verification
+            if biometric_verified != 'true':
+                return jsonify({
+                    'success': False,
+                    'message': 'Face verification is required'
+                }), 400
+            
             # Check if session exists and is active
             active_sessions = get_admin_sessions(admin_username)
             if session_id not in active_sessions:
                 return jsonify({
                     'success': False,
-                    'message': 'Session not found'
-                }), 404
+                    'message': 'Invalid or expired session'
+                }), 400
                 
             session_data = active_sessions[session_id]
             if not session_data.get('active', False):
                 return jsonify({
                     'success': False,
-                    'message': 'Session is not active'
-                }), 400
-            
-            # Get form data
-            enrollment_no = request.form.get('enrollment_no')
-            student_name = request.form.get('student_name')
-            
-            if not enrollment_no or not enrollment_no.isdigit():
-                return jsonify({
-                    'success': False,
-                    'message': 'Valid enrollment number is required'
-                }), 400
-            
-            if not student_name:
-                return jsonify({
-                    'success': False,
-                    'message': 'Student name is required'
+                    'message': 'This session is no longer active'
                 }), 400
             
             # Create attendance record
@@ -371,11 +378,11 @@ def submit_attendance():
                 'session_id': session_id,
                 'admin_username': admin_username,
                 'created_at': datetime.now().isoformat(),
-                'latitude': request.form.get('latitude'),
-                'longitude': request.form.get('longitude'),
-                'address': request.form.get('address'),
-                'biometric_verified': request.form.get('biometric_verified') == 'true',
-                'biometric_type': request.form.get('biometric_type', 'Face ID')
+                'latitude': latitude,
+                'longitude': longitude,
+                'address': address,
+                'biometric_verified': True,
+                'biometric_type': 'Face ID'
             }
             
             # Store attendance data
@@ -383,20 +390,15 @@ def submit_attendance():
             
             return jsonify({
                 'success': True,
-                'message': 'Attendance marked successfully'
+                'message': 'Attendance marked successfully!'
             })
                 
         except Exception as e:
             print(f"Error in submit_attendance: {str(e)}")
             return jsonify({
                 'success': False,
-                'message': 'An error occurred while marking attendance'
+                'message': 'An error occurred. Please try again.'
             }), 500
-
-@app.route('/admin/view-responses/<session_id>')
-@login_required
-def view_responses(session_id):
-    admin_username = session.get('admin_username')
     responses = app.config['SESSION_RESPONSES'].get(admin_username, {}).get(session_id, [])
     session_data = app.config['ACTIVE_SESSIONS'].get(admin_username, {}).get(session_id, {})
     

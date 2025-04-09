@@ -88,6 +88,9 @@
         <div class="attendance-form">
             <h4 class="mb-4">Mark Attendance</h4>
             <form id="attendanceForm" action="/submit-attendance" method="POST" enctype="multipart/form-data">
+                <!-- Hidden fields for session and admin info -->
+                <input type="hidden" name="session_id" value="{{ request.args.get('session_id') }}">
+                <input type="hidden" name="admin" value="{{ request.args.get('admin') }}">
                 <div class="form-group mb-4">
                     <label>Enrollment Number</label>
                     <input type="text" class="form-control" id="enrollment_no" name="enrollment_no" required 
