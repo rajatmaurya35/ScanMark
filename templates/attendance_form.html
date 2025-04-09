@@ -101,9 +101,12 @@
 
                 <div class="form-group mb-4">
                     <label>Your Location</label>
-                    <div id="map" class="map-container"></div>
-                    <div id="address-display" class="mt-2 mb-2">Fetching location...</div>
-                    <small class="text-muted d-block mb-3">Your current location will be automatically captured</small>
+                    <div id="location-status" class="alert alert-info mb-2">Fetching your location...</div>
+                    <div id="map" class="map-container" style="height: 200px; margin-bottom: 10px;"></div>
+                    <div id="address-display" class="mt-2 mb-2"></div>
+                    <button type="button" class="btn btn-secondary w-100" onclick="retryLocation()">
+                        <i class="fas fa-sync-alt me-2"></i> Retry Location
+                    </button>
 
                     <!-- Hidden Fields -->
                     <input type="hidden" id="latitude" name="latitude">
@@ -256,97 +259,131 @@
             }
         }
 
-        // Get address from coordinates using multiple providers
+        let currentMap = null;
+
+        // Simple coordinate to address conversion
         async function getAddressFromCoords(lat, lon) {
-            const providers = [
-                // OpenStreetMap Nominatim
-                async () => {
-                    const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`);
-                    const data = await response.json();
-                    return data.display_name;
-                },
-                // Fallback to coordinates if service fails
-                async () => {
-                    return `Latitude: ${lat}, Longitude: ${lon}`;
-                }
-            ];
-
-            for (const provider of providers) {
-                try {
-                    const address = await provider();
-                    if (address) return address;
-                } catch (err) {
-                    console.warn('Provider failed:', err);
-                    continue;
-                }
+            try {
+                const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`);
+                const data = await response.json();
+                return data.display_name || `${lat}, ${lon}`;
+            } catch (err) {
+                console.warn('Address lookup failed:', err);
+                return `${lat}, ${lon}`;
             }
-
-            // If all providers fail, return coordinates
-            return `Latitude: ${lat}, Longitude: ${lon}`;
         }
 
-        // Initialize map and location with high accuracy
-        async function initLocation() {
+        // Update the map with new coordinates
+        function updateMap(lat, lon) {
+            try {
+                if (currentMap) {
+                    currentMap.remove(); // Remove existing map
+                }
+
+                // Create new map
+                currentMap = L.map('map').setView([lat, lon], 15);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(currentMap);
+                L.marker([lat, lon]).addTo(currentMap);
+
+                // Force map redraw
+                setTimeout(() => {
+                    currentMap.invalidateSize();
+                }, 100);
+            } catch (error) {
+                console.error('Map update failed:', error);
+            }
+        }
+
+        // Update location status
+        function updateLocationStatus(message, type = 'info') {
+            const statusEl = document.getElementById('location-status');
+            statusEl.className = `alert alert-${type} mb-2`;
+            statusEl.innerHTML = message;
+        }
+
+        // Handle successful location
+        async function handleLocation(position) {
+            const lat = position.coords.latitude;
+            const lon = position.coords.longitude;
+            
+            // Update hidden fields
+            document.getElementById('latitude').value = lat;
+            document.getElementById('longitude').value = lon;
+            
+            try {
+                // Update status
+                updateLocationStatus('Location found! Getting address...', 'info');
+                
+                // Get and display address
+                const address = await getAddressFromCoords(lat, lon);
+                document.getElementById('address').value = address;
+                document.getElementById('address-display').innerHTML = 
+                    `<div class="alert alert-success mb-2">
+                        <strong>Location Verified</strong><br>
+                        ${address}
+                    </div>`;
+                
+                // Update map
+                updateMap(lat, lon);
+                
+                // Mark as verified
+                locationVerified = true;
+                updateSubmitButton();
+                updateLocationStatus('Location verified successfully!', 'success');
+                
+            } catch (error) {
+                console.error('Error processing location:', error);
+                handleLocationError({ code: 0, message: 'Failed to process location' });
+            }
+        }
+
+        // Handle location errors
+        function handleLocationError(error) {
+            console.error('Location error:', error);
+            locationVerified = false;
+            updateSubmitButton();
+
+            let message = '';
+            switch(error.code) {
+                case error.PERMISSION_DENIED:
+                    message = 'Please enable location access in your browser/device settings';
+                    break;
+                case error.POSITION_UNAVAILABLE:
+                    message = 'Unable to detect location. Please check your GPS is enabled';
+                    break;
+                case error.TIMEOUT:
+                    message = 'Location request timed out. Please try again';
+                    break;
+                default:
+                    message = 'Failed to get location. Please try again';
+            }
+
+            updateLocationStatus(message, 'danger');
+            document.getElementById('address-display').innerHTML = '';
+        }
+
+        // Initialize location services
+        function initLocation() {
+            if (!navigator.geolocation) {
+                updateLocationStatus('Your browser doesn\'t support location services', 'danger');
+                return;
+            }
+
             const options = {
                 enableHighAccuracy: true,
                 timeout: 10000,
                 maximumAge: 0
             };
 
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(async (position) => {
-                    const lat = position.coords.latitude;
-                    const lon = position.coords.longitude;
-                    
-                    // Update hidden fields
-                    document.getElementById('latitude').value = lat;
-                    document.getElementById('longitude').value = lon;
-                    
-                    try {
-                        // Get and display address
-                        const address = await getAddressFromCoords(lat, lon);
-                        if (address) {
-                            document.getElementById('address').value = address;
-                            document.getElementById('address-display').innerHTML = `<strong>Current Address:</strong><br>${address}`;
-                            locationVerified = true;
-                            updateSubmitButton();
-                        }
-                        
-                        // Update map
-                        const map = L.map('map').setView([lat, lon], 15);
-                        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-                        L.marker([lat, lon]).addTo(map);
-                    } catch (error) {
-                        console.error('Error getting address:', error);
-                        document.getElementById('address-display').innerHTML = 
-                            `<span class="text-warning">Location found but address lookup failed. Using coordinates: ${lat}, ${lon}</span>`;
-                        // Still mark as verified since we have coordinates
-                        locationVerified = true;
-                        updateSubmitButton();
-                    }
-                }, (error) => {
-                    console.error('Location error:', error);
-                    let errorMessage = 'Error: ';
-                    switch(error.code) {
-                        case error.PERMISSION_DENIED:
-                            errorMessage += 'Please enable location access in your device settings.';
-                            break;
-                        case error.POSITION_UNAVAILABLE:
-                            errorMessage += 'Location information is unavailable. Please check your device\'s GPS.';
-                            break;
-                        case error.TIMEOUT:
-                            errorMessage += 'Location request timed out. Please try again.';
-                            break;
-                        default:
-                            errorMessage += 'An unknown error occurred.';
-                    }
-                    document.getElementById('address-display').innerHTML = 
-                        `<span class="text-danger">${errorMessage}</span>`;
-                }, options);
-            } else {
-                document.getElementById('address-display').innerHTML = 
-                    '<span class="text-danger">Error: Your browser does not support geolocation.</span>';
-            }
+            updateLocationStatus('Requesting your location...', 'info');
+            navigator.geolocation.getCurrentPosition(handleLocation, handleLocationError, options);
+        }
+
+        // Retry getting location
+        function retryLocation() {
+            updateLocationStatus('Retrying location...', 'info');
+            initLocation();
+        }
         }
 
         // Initialize everything when page loads
