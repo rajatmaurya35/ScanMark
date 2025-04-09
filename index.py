@@ -375,7 +375,7 @@ def submit_attendance():
                     'message': 'This session is no longer active'
                 }), 400
             
-            # Create attendance record
+            # Create attendance record with proper address
             attendance_data = {
                 'enrollment_no': enrollment_no,
                 'student_name': student_name,
@@ -384,7 +384,7 @@ def submit_attendance():
                 'created_at': datetime.now().isoformat(),
                 'latitude': latitude,
                 'longitude': longitude,
-                'address': address,
+                'address': address if address else 'Location not available',
                 'biometric_verified': True,
                 'biometric_type': 'Face ID'
             }

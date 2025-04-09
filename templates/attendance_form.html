@@ -369,7 +369,7 @@
             document.getElementById('latitude').value = latitude;
             document.getElementById('longitude').value = longitude;
             
-            // Update map
+            // Initialize map
             if (!map) {
                 map = L.map('map').setView([latitude, longitude], 15);
                 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -377,13 +377,23 @@
                 }).addTo(map);
             } else {
                 map.setView([latitude, longitude], 15);
+                // Clear existing markers
+                map.eachLayer((layer) => {
+                    if (layer instanceof L.Marker) {
+                        map.removeLayer(layer);
+                    }
+                });
             }
             
-            // Add marker
-            L.marker([latitude, longitude]).addTo(map);
+            // Add marker with popup
+            const marker = L.marker([latitude, longitude]).addTo(map);
+            marker.bindPopup('Your current location').openPopup();
             
             // Get and display address
-            getAddressFromCoords(latitude, longitude);
+            const address = await getAddressFromCoords(latitude, longitude);
+            if (address) {
+                document.getElementById('address').value = address;
+            }
             
             // Update verification status
             locationVerified = true;
@@ -417,9 +427,19 @@
 
         // Get address from coordinates
         async function getAddressFromCoords(lat, lon) {
+            const addressDisplay = document.getElementById('address-display');
+            addressDisplay.innerHTML = `
+                <div class="spinner-border spinner-border-sm text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <span class="ms-2">Fetching location details...</span>
+            `;
+
             try {
                 const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&addressdetails=1`);
                 const data = await response.json();
+                
+                // Format address components
                 const address = data.address;
                 const formattedAddress = [
                     address.road,
@@ -428,13 +448,23 @@
                     address.state,
                     address.country
                 ].filter(Boolean).join(', ');
+                
+                // Update display with formatted address
+                addressDisplay.innerHTML = `
+                    <i class="fas fa-map-marker-alt text-danger"></i>
+                    <span class="ms-2">${formattedAddress}</span>
+                `;
+                
+                // Store the address in hidden field
                 document.getElementById('address').value = formattedAddress;
-                document.getElementById('address-display').innerHTML = `<strong>Location:</strong> ${formattedAddress}`;
                 return formattedAddress;
             } catch (error) {
                 console.error('Error getting address:', error);
-                document.getElementById('address-display').innerHTML = '<strong>Location:</strong> Unable to get address';
-                return 'Unable to get address';
+                addressDisplay.innerHTML = `
+                    <i class="fas fa-exclamation-circle text-warning"></i>
+                    <span class="ms-2">Could not fetch location details</span>
+                `;
+                return null;
             }
         }
 
