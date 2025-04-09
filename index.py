@@ -399,6 +399,10 @@ def submit_attendance():
                 'success': False,
                 'message': 'An error occurred. Please try again.'
             }), 500
+@app.route('/admin/view-responses/<session_id>')
+@login_required
+def view_responses(session_id):
+    admin_username = session.get('admin_username')
     responses = app.config['SESSION_RESPONSES'].get(admin_username, {}).get(session_id, [])
     session_data = app.config['ACTIVE_SESSIONS'].get(admin_username, {}).get(session_id, {})
     
@@ -410,7 +414,6 @@ def submit_attendance():
             # Generate QR code
             qr_code, _ = generate_session_qr(admin_username, session_id, session_data)
             if qr_code:
-                # Save QR code
                 try:
                     qr_data = base64.b64decode(qr_code.split(',')[1])
                     os.makedirs('static/qr_codes', exist_ok=True)
