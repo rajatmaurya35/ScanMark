@@ -271,6 +271,8 @@
         async function initLocation() {
             const addressDisplay = document.getElementById('address-display');
             addressDisplay.innerHTML = 'Requesting location access...';
+            const maxRetries = 3;
+            let currentRetry = 0;
             
             try {
                 // Create map instance
@@ -344,8 +346,8 @@
 
                 const options = {
                     enableHighAccuracy: highAccuracy,
-                    timeout: highAccuracy ? 10000 : 5000,
-                    maximumAge: 0
+                    timeout: highAccuracy ? 20000 : 15000, // Increased timeout
+                    maximumAge: highAccuracy ? 0 : 10000 // Cache for low accuracy only
                 };
 
                 navigator.geolocation.getCurrentPosition(
