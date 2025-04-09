@@ -47,6 +47,19 @@
             border-radius: 4px;
             margin-bottom: 15px;
         }
+        .camera-container {
+            background-color: #f8f9fa;
+            padding: 1rem;
+            border-radius: 8px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        #camera-preview, #capture-preview {
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            background: #000;
+        }
         .btn-submit {
             background: #198754;
             color: white;
@@ -72,9 +85,22 @@
     </style>
 </head>
 <body>
-    <!-- Camera feed for face verification -->
-    <video id="camera-feed" autoplay playsinline style="max-width: 100%; display: none; margin: 10px 0; border-radius: 8px;"></video>
-    <canvas id="canvas" style="display: none;"></canvas>
+    <!-- Camera Section -->
+    <div class="camera-container mb-4">
+        <h5><i class="fas fa-camera"></i> Take Photo</h5>
+        <video id="camera-preview" autoplay playsinline style="width: 100%; max-width: 500px;"></video>
+        <img id="capture-preview" style="display: none; width: 100%; max-width: 500px;">
+        <canvas id="capture-canvas" style="display: none;"></canvas>
+        <input type="hidden" id="captured-image" name="captured_image">
+        <div class="mt-2">
+            <button type="button" id="capture-btn" class="btn btn-primary" onclick="captureImage()">
+                <i class="fas fa-camera"></i> Take Photo
+            </button>
+            <button type="button" id="retake-btn" class="btn btn-secondary" onclick="retakePhoto()" style="display: none;">
+                <i class="fas fa-redo"></i> Retake
+            </button>
+        </div>
+    </div>
     
     <div class="container">
         <div class="session-info">
@@ -267,11 +293,71 @@
             updateSubmitButton();
         }
 
+        let capturedImage = null;
+
+        // Initialize camera
+        async function initCamera() {
+            const video = document.getElementById('camera-preview');
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                video.srcObject = stream;
+                return true;
+            } catch (error) {
+                console.error('Error accessing camera:', error);
+                return false;
+            }
+        }
+
+        // Capture image
+        async function captureImage() {
+            const video = document.getElementById('camera-preview');
+            const canvas = document.getElementById('capture-canvas');
+            const context = canvas.getContext('2d');
+            const previewContainer = document.getElementById('capture-preview');
+
+            // Set canvas dimensions to match video
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+
+            // Draw video frame to canvas
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            // Convert to base64
+            capturedImage = canvas.toDataURL('image/jpeg');
+            
+            // Show preview
+            previewContainer.src = capturedImage;
+            previewContainer.style.display = 'block';
+            video.style.display = 'none';
+
+            // Update hidden input
+            document.getElementById('captured-image').value = capturedImage;
+            
+            // Update UI
+            document.getElementById('capture-btn').style.display = 'none';
+            document.getElementById('retake-btn').style.display = 'block';
+            return true;
+        }
+
+        // Retake photo
+        function retakePhoto() {
+            const video = document.getElementById('camera-preview');
+            const previewContainer = document.getElementById('capture-preview');
+            
+            // Reset UI
+            video.style.display = 'block';
+            previewContainer.style.display = 'none';
+            document.getElementById('capture-btn').style.display = 'block';
+            document.getElementById('retake-btn').style.display = 'none';
+            capturedImage = null;
+            document.getElementById('captured-image').value = '';
+        }
+
         // Initialize location services
         async function initLocation() {
             const addressDisplay = document.getElementById('address-display');
             addressDisplay.innerHTML = 'Requesting location access...';
-            const maxRetries = 5; // Increased retries
+            const maxRetries = 5;
             let currentRetry = 0;
             let bestAccuracy = Infinity;
             let bestPosition = null;
@@ -282,7 +368,7 @@
                 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
                 
                 // Keep trying until we get good accuracy or max retries
-                while (currentRetry < maxRetries && (!bestPosition || bestAccuracy > 20)) { // 20 meters accuracy target
+                while (currentRetry < maxRetries && (!bestPosition || bestAccuracy > 20)) {
                     try {
                         const position = await new Promise((resolve, reject) => {
                             navigator.geolocation.getCurrentPosition(
@@ -518,8 +604,9 @@
         }
 
         // Initialize everything when page loads
-        document.addEventListener('DOMContentLoaded', () => {
-            initLocation();
+        document.addEventListener('DOMContentLoaded', async () => {
+            await initCamera();
+            await initLocation();
             
             // Handle form submission
             document.getElementById('attendanceForm').addEventListener('submit', async function(e) {
@@ -530,13 +617,19 @@
                     return;
                 }
                 
-                if (!biometricVerified) {
-                    alert('Please verify your Face ID');
+                const capturedImage = document.getElementById('captured-image').value;
+                if (!capturedImage) {
+                    alert('Please take a photo before submitting');
                     return;
                 }
                 
                 // Submit the form using fetch
                 const formData = new FormData(this);
+                formData.append('image', document.getElementById('captured-image').value);
+                formData.append('latitude', document.getElementById('latitude').value);
+                formData.append('longitude', document.getElementById('longitude').value);
+                formData.append('address', document.getElementById('address').value);
+                
                 try {
                     const response = await fetch('/submit-attendance', {
                         method: 'POST',
