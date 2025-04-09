@@ -162,22 +162,20 @@
                             <!-- Location Map -->
                             {% if response.latitude and response.longitude %}
                             <div class="col-12">
-                                <div class="form-group mb-4">
-                                    <label><i class="fas fa-map-marker-alt"></i> Your Location</label>
-                                    <div class="map-container" id="map-{{ loop.index }}"></div>
-                                    <div id="address-display-{{ loop.index }}" class="mt-2 mb-2 p-2 bg-light rounded">
-                                        {% if response.address %}
-                                            <p class="mb-0">{{ response.address }}</p>
-                                        {% else %}
-                                            <div class="spinner-border spinner-border-sm text-primary" role="status">
-                                                <span class="visually-hidden">Loading...</span>
-                                            </div>
-                                            <span class="ms-2">Fetching location details...</span>
-                                        {% endif %}
+                                <div class="row">
+                                    <div class="col-12 d-flex align-items-center mb-2">
+                                        <i class="fas fa-map-marker-alt text-danger me-2"></i>
+                                        <h6 class="mb-0">Your Location</h6>
                                     </div>
-                                    <small class="text-muted d-block mb-3">
-                                        <i class="fas fa-location-dot me-1"></i>{{ response.latitude }}, {{ response.longitude }}
-                                    </small>
+                                    <div class="col-12">
+                                        <div class="map-container" id="map-{{ loop.index }}"></div>
+                                    </div>
+                                    <div class="col-12 mt-2">
+                                        <p class="mb-0">{{ response.address }}</p>
+                                        <small class="text-muted d-block mt-1">
+                                            <i class="fas fa-location-dot me-1"></i>{{ response.latitude }}, {{ response.longitude }}
+                                        </small>
+                                    </div>
                                 </div>
                             </div>
                             {% endif %}
