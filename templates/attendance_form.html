@@ -271,13 +271,60 @@
         async function initLocation() {
             const addressDisplay = document.getElementById('address-display');
             addressDisplay.innerHTML = 'Requesting location access...';
-            const maxRetries = 3;
+            const maxRetries = 5; // Increased retries
             let currentRetry = 0;
+            let bestAccuracy = Infinity;
+            let bestPosition = null;
             
             try {
                 // Create map instance
                 const map = L.map('map').setView([0, 0], 2);
                 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+                
+                // Keep trying until we get good accuracy or max retries
+                while (currentRetry < maxRetries && (!bestPosition || bestAccuracy > 20)) { // 20 meters accuracy target
+                    try {
+                        const position = await new Promise((resolve, reject) => {
+                            navigator.geolocation.getCurrentPosition(
+                                pos => resolve(pos),
+                                err => reject(err),
+                                {
+                                    enableHighAccuracy: true,
+                                    timeout: 30000,
+                                    maximumAge: 0
+                                }
+                            );
+                        });
+                        
+                        if (position.coords.accuracy < bestAccuracy) {
+                            bestAccuracy = position.coords.accuracy;
+                            bestPosition = position;
+                            
+                            // Update UI with current best position
+                            addressDisplay.innerHTML = `
+                                <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                                <span class="ms-2">Getting precise location... (Accuracy: ${Math.round(bestAccuracy)}m)</span>
+                            `;
+                            
+                            // If accuracy is good enough, stop retrying
+                            if (bestAccuracy <= 20) break;
+                        }
+                    } catch (error) {
+                        console.warn(`Attempt ${currentRetry + 1} failed:`, error);
+                    }
+                    
+                    currentRetry++;
+                    if (currentRetry < maxRetries) {
+                        await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds between tries
+                    }
+                }
+                
+                if (!bestPosition) {
+                    throw new Error('Could not get accurate location');
+                }
+                
+                // Use the best position we got
+                await handlePosition(bestPosition);
                 
                 // Check for geolocation support
                 if (!navigator.geolocation) {
@@ -345,9 +392,9 @@
                 }
 
                 const options = {
-                    enableHighAccuracy: highAccuracy,
-                    timeout: highAccuracy ? 20000 : 15000, // Increased timeout
-                    maximumAge: highAccuracy ? 0 : 10000 // Cache for low accuracy only
+                    enableHighAccuracy: true, // Always use high accuracy
+                    timeout: 30000, // 30 seconds timeout
+                    maximumAge: 0 // Never use cached position
                 };
 
                 navigator.geolocation.getCurrentPosition(

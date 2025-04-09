@@ -165,7 +165,7 @@
                             <div class="col-12">
                                 <div class="form-group mb-4">
                                     <label><i class="fas fa-map-marker-alt"></i> Your Location</label>
-                                    <div id="map-{{ loop.index }}" class="map-container"></div>
+                                    <div id="map-{{ loop.index }}" class="map-container" data-lat="{{ response.latitude }}" data-lng="{{ response.longitude }}"></div>
                                     <div id="address-display-{{ loop.index }}" class="mt-2 mb-2 p-2 bg-light rounded">
                                         <p class="mb-0">{{ response.address }}</p>
                                     </div>
@@ -253,18 +253,35 @@
         }
 
         function initMap(elementId, lat, lng) {
-            const mapUrl = `https://www.openstreetmap.org/export/embed.html?bbox=${lng-0.01},${lat-0.01},${lng+0.01},${lat+0.01}&layer=mapnik&marker=${lat},${lng}`;
-            const iframe = document.createElement('iframe');
-            iframe.width = '100%';
-            iframe.height = '100%';
-            iframe.frameBorder = '0';
+            try {
+                const map = L.map(elementId).setView([lat, lng], 16);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '© OpenStreetMap contributors'
+                }).addTo(map);
+                
+                // Add a marker with accuracy circle
+                const marker = L.marker([lat, lng]).addTo(map);
+                marker.bindPopup('Attendance Location').openPopup();
+            } catch (error) {
+                console.error('Error initializing map:', error);
+            }
                     }
                 });
             }
         }
 
         // Initialize maps when document is ready
-        document.addEventListener('DOMContentLoaded', initMaps);
+        document.addEventListener('DOMContentLoaded', function() {
+            const mapElements = document.querySelectorAll('[id^="map-"]');
+            mapElements.forEach(function(element) {
+                const index = element.id.split('-')[1];
+                const lat = parseFloat(element.getAttribute('data-lat'));
+                const lng = parseFloat(element.getAttribute('data-lng'));
+                if (!isNaN(lat) && !isNaN(lng)) {
+                    initMap(element.id, lat, lng);
+                }
+            });
+        });
     </script>
 </body>
 </html>
