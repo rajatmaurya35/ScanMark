@@ -78,7 +78,7 @@
     
     <div class="container">
         <div class="session-info">
-            <h4>Active Session</h4>
+            <h4>Active Session: {{ session.name }}</h4>
             <p>Faculty: {{ session.faculty }}</p>
             <p>Branch: {{ session.branch }}</p>
             <p>Semester: {{ session.semester }}</p>
@@ -354,35 +354,32 @@
 
         // Handle successful position
         async function handlePosition(position) {
-            const lat = position.coords.latitude;
-            const lon = position.coords.longitude;
-            
-            // Update hidden fields
-            document.getElementById('latitude').value = lat;
-            document.getElementById('longitude').value = lon;
+            const { latitude, longitude } = position.coords;
+            document.getElementById('latitude').value = latitude;
+            document.getElementById('longitude').value = longitude;
             
             // Update map
-            if (map) {
-                map.setView([lat, lon], 15);
-                L.marker([lat, lon]).addTo(map);
+            if (!map) {
+                map = L.map('map').setView([latitude, longitude], 15);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: 'OpenStreetMap contributors'
+                }).addTo(map);
+            } else {
+                map.setView([latitude, longitude], 15);
             }
             
+            // Add marker
+            L.marker([latitude, longitude]).addTo(map);
+            
             // Get and display address
-            try {
-                const address = await getAddressFromCoords(lat, lon);
-                if (address) {
-                    document.getElementById('address').value = address;
-                    document.getElementById('address-display').innerHTML = `<strong>Current Address:</strong><br>${address}`;
-                    locationVerified = true;
-                    updateSubmitButton();
-                }
-            } catch (error) {
-                console.error('Address lookup error:', error);
-                document.getElementById('address-display').innerHTML = 
-                    '<span class="text-warning">Address lookup failed, but location captured successfully.</span>';
-                locationVerified = true;
-                updateSubmitButton();
-            }
+            getAddressFromCoords(latitude, longitude);
+            
+            // Update verification status
+            locationVerified = true;
+            updateSubmitButton();
+            
+            // Update status display with loading message until address is fetched
+            document.getElementById('address-display').innerHTML = '<strong>Location:</strong> Fetching address...';
         }
 
         // Handle location errors
@@ -403,18 +400,30 @@
             }
             document.getElementById('address-display').innerHTML = 
                 `<span class="text-danger"><i class="fas fa-exclamation-circle me-1"></i> Error: ${message}</span>`;
+            locationVerified = false;
+            updateSubmitButton();
         }
 
         // Get address from coordinates
         async function getAddressFromCoords(lat, lon) {
             try {
-                const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`);
-                if (!response.ok) throw new Error('Address lookup failed');
+                const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&addressdetails=1`);
                 const data = await response.json();
-                return data.display_name;
-            } catch (err) {
-                console.error('Error getting address:', err);
-                throw err;
+                const address = data.address;
+                const formattedAddress = [
+                    address.road,
+                    address.suburb,
+                    address.city || address.town,
+                    address.state,
+                    address.country
+                ].filter(Boolean).join(', ');
+                document.getElementById('address').value = formattedAddress;
+                document.getElementById('address-display').innerHTML = `<strong>Location:</strong> ${formattedAddress}`;
+                return formattedAddress;
+            } catch (error) {
+                console.error('Error getting address:', error);
+                document.getElementById('address-display').innerHTML = '<strong>Location:</strong> Unable to get address';
+                return 'Unable to get address';
             }
         }
 
