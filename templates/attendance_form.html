@@ -78,11 +78,17 @@
     
     <div class="container">
         <div class="session-info">
-            <h4>Active Session: {{ session.name }}</h4>
-            <p>Faculty: {{ session.faculty }}</p>
-            <p>Branch: {{ session.branch }}</p>
-            <p>Semester: {{ session.semester }}</p>
-            <p>Created: {{ session.created_at }}</p>
+            <h3 class="mb-4">{{ session.name }}</h3>
+            <div class="row">
+                <div class="col-md-6">
+                    <p><strong>Faculty:</strong> {{ session.faculty }}</p>
+                    <p><strong>Branch:</strong> {{ session.branch }}</p>
+                </div>
+                <div class="col-md-6">
+                    <p><strong>Semester:</strong> {{ session.semester }}</p>
+                    <p><strong>Created:</strong> {{ session.created_at }}</p>
+                </div>
+            </div>
         </div>
 
         <div class="attendance-form">
@@ -104,10 +110,15 @@
                 </div>
 
                 <div class="form-group mb-4">
-                    <label>Your Location</label>
+                    <label><i class="fas fa-map-marker-alt"></i> Your Location</label>
                     <div id="map" class="map-container"></div>
-                    <div id="address-display" class="mt-2 mb-2">Fetching location...</div>
-                    <small class="text-muted d-block mb-3">Your current location will be automatically captured</small>
+                    <div id="address-display" class="mt-2 mb-2 p-2 bg-light rounded">
+                        <div class="spinner-border spinner-border-sm text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <span class="ms-2">Fetching your location...</span>
+                    </div>
+                    <small class="text-muted d-block mb-3"><i class="fas fa-info-circle"></i> Your current location will be automatically captured</small>
 
                     <!-- Hidden Fields -->
                     <input type="hidden" id="latitude" name="latitude">
@@ -138,7 +149,7 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://kit.fontawesome.com/your-font-awesome-kit.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://unpkg.com/leaflet@1.9.2/dist/leaflet.js"
             integrity="sha256-o9N1jGDZrf5tS+Ft4gbIK7mYMipq9lqpVJ91xHSyKhg="
             crossorigin=""></script>

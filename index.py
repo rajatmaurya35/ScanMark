@@ -312,10 +312,14 @@ def submit_attendance():
             active_sessions = get_admin_sessions(admin_username)
             if session_id in active_sessions:
                 session_data = active_sessions[session_id]
+                # Add session name if not present
+                if 'name' not in session_data:
+                    session_data['name'] = f'Session {session_id[:8]}'
                 return render_template('attendance_form.html', 
                                    session=session_data,
                                    session_id=session_id,
-                                   admin_username=admin_username)
+                                   admin_username=admin_username,
+                                   show_location=True)
             else:
                 return "Session not found", 404
         else:
