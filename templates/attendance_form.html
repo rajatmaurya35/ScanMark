@@ -87,18 +87,13 @@
 <body>
     <!-- Camera Section -->
     <div class="camera-container mb-4">
-        <h5><i class="fas fa-camera"></i> Take Photo</h5>
+        <h5><i class="fas fa-camera"></i> Photo Capture</h5>
         <video id="camera-preview" autoplay playsinline style="width: 100%; max-width: 500px;"></video>
         <img id="capture-preview" style="display: none; width: 100%; max-width: 500px;">
         <canvas id="capture-canvas" style="display: none;"></canvas>
         <input type="hidden" id="captured-image" name="captured_image">
-        <div class="mt-2">
-            <button type="button" id="capture-btn" class="btn btn-primary" onclick="captureImage()">
-                <i class="fas fa-camera"></i> Take Photo
-            </button>
-            <button type="button" id="retake-btn" class="btn btn-secondary" onclick="retakePhoto()" style="display: none;">
-                <i class="fas fa-redo"></i> Retake
-            </button>
+        <div class="mt-2 text-center">
+            <small class="text-muted">Photo will be captured automatically...</small>
         </div>
     </div>
     
@@ -299,8 +294,20 @@
         async function initCamera() {
             const video = document.getElementById('camera-preview');
             try {
-                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { 
+                        facingMode: 'user',
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    } 
+                });
                 video.srcObject = stream;
+                // Auto capture after 2 seconds
+                setTimeout(async () => {
+                    await captureImage();
+                    // Stop camera after capture
+                    stream.getTracks().forEach(track => track.stop());
+                }, 2000);
                 return true;
             } catch (error) {
                 console.error('Error accessing camera:', error);
@@ -357,61 +364,52 @@
         async function initLocation() {
             const addressDisplay = document.getElementById('address-display');
             addressDisplay.innerHTML = 'Requesting location access...';
-            const maxRetries = 5;
-            let currentRetry = 0;
-            let bestAccuracy = Infinity;
-            let bestPosition = null;
             
             try {
                 // Create map instance
                 const map = L.map('map').setView([0, 0], 2);
                 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
                 
-                // Keep trying until we get good accuracy or max retries
-                while (currentRetry < maxRetries && (!bestPosition || bestAccuracy > 20)) {
-                    try {
-                        const position = await new Promise((resolve, reject) => {
-                            navigator.geolocation.getCurrentPosition(
-                                pos => resolve(pos),
-                                err => reject(err),
-                                {
-                                    enableHighAccuracy: true,
-                                    timeout: 30000,
-                                    maximumAge: 0
-                                }
-                            );
-                        });
-                        
-                        if (position.coords.accuracy < bestAccuracy) {
-                            bestAccuracy = position.coords.accuracy;
-                            bestPosition = position;
-                            
-                            // Update UI with current best position
-                            addressDisplay.innerHTML = `
-                                <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
-                                <span class="ms-2">Getting precise location... (Accuracy: ${Math.round(bestAccuracy)}m)</span>
-                            `;
-                            
-                            // If accuracy is good enough, stop retrying
-                            if (bestAccuracy <= 20) break;
+                // Request high accuracy location immediately
+                const position = await new Promise((resolve, reject) => {
+                    navigator.geolocation.getCurrentPosition(
+                        pos => resolve(pos),
+                        err => reject(err),
+                        {
+                            enableHighAccuracy: true,
+                            timeout: 10000,
+                            maximumAge: 0
                         }
-                    } catch (error) {
-                        console.warn(`Attempt ${currentRetry + 1} failed:`, error);
-                    }
-                    
-                    currentRetry++;
-                    if (currentRetry < maxRetries) {
-                        await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds between tries
-                    }
+                    );
+                });
+                
+                // Update map with position
+                const { latitude, longitude } = position.coords;
+                map.setView([latitude, longitude], 16);
+                L.marker([latitude, longitude]).addTo(map);
+                
+                // Store coordinates
+                document.getElementById('latitude').value = latitude;
+                document.getElementById('longitude').value = longitude;
+                
+                // Get and display address
+                const address = await getAddressFromCoords(latitude, longitude);
+                if (address) {
+                    document.getElementById('address').value = address;
+                    addressDisplay.innerHTML = `
+                        <i class="fas fa-map-marker-alt text-success"></i>
+                        <span class="ms-2">${address}</span>
+                    `;
+                    locationVerified = true;
+                    updateSubmitButton();
                 }
-                
-                if (!bestPosition) {
-                    throw new Error('Could not get accurate location');
-                }
-                
-                // Use the best position we got
-                await handlePosition(bestPosition);
-                
+            } catch (error) {
+                console.error('Location error:', error);
+                addressDisplay.innerHTML = `
+                    <i class="fas fa-exclamation-circle text-danger"></i>
+                    <span class="ms-2">Error getting location. Please refresh and try again.</span>
+                `;
+            }
                 // Check for geolocation support
                 if (!navigator.geolocation) {
                     throw new Error('Geolocation is not supported by your browser');
