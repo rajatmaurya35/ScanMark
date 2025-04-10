@@ -93,7 +93,9 @@
         <canvas id="capture-canvas" style="display: none;"></canvas>
         <input type="hidden" id="captured-image" name="captured_image">
         <div class="mt-2 text-center">
-            <small class="text-muted">Photo will be captured automatically...</small>
+            <button type="button" id="capture-btn" class="btn btn-primary" onclick="captureImage()">
+                <i class="fas fa-camera"></i> Take Photo
+            </button>
         </div>
     </div>
     
@@ -302,12 +304,7 @@
                     } 
                 });
                 video.srcObject = stream;
-                // Auto capture after 2 seconds
-                setTimeout(async () => {
-                    await captureImage();
-                    // Stop camera after capture
-                    stream.getTracks().forEach(track => track.stop());
-                }, 2000);
+                document.getElementById('capture-btn').style.display = 'block';
                 return true;
             } catch (error) {
                 console.error('Error accessing camera:', error);
@@ -370,16 +367,19 @@
                 const map = L.map('map').setView([0, 0], 2);
                 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
                 
-                // Request high accuracy location immediately
+                // Request high accuracy location immediately with longer timeout
                 const position = await new Promise((resolve, reject) => {
                     navigator.geolocation.getCurrentPosition(
                         pos => resolve(pos),
-                        err => reject(err),
-                        {
-                            enableHighAccuracy: true,
-                            timeout: 10000,
-                            maximumAge: 0
-                        }
+                        err => {
+                            // If high accuracy fails, try again with lower accuracy
+                            navigator.geolocation.getCurrentPosition(
+                                pos => resolve(pos),
+                                err => reject(err),
+                                { enableHighAccuracy: false, timeout: 30000, maximumAge: 0 }
+                            );
+                        },
+                        { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
                     );
                 });
                 
