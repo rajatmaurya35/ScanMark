@@ -88,14 +88,22 @@
     <!-- Camera Section -->
     <div class="camera-container mb-4">
         <h5><i class="fas fa-camera"></i> Photo Capture</h5>
-        <video id="camera-preview" autoplay playsinline style="width: 100%; max-width: 500px;"></video>
-        <img id="capture-preview" style="display: none; width: 100%; max-width: 500px;">
+        <div id="camera-box" style="width: 100%; max-width: 500px; margin: 0 auto; border: 2px solid #ddd; border-radius: 8px; overflow: hidden;">
+            <video id="camera-preview" autoplay playsinline style="width: 100%; display: block;"></video>
+            <img id="capture-preview" style="display: none; width: 100%;">
+        </div>
         <canvas id="capture-canvas" style="display: none;"></canvas>
         <input type="hidden" id="captured-image" name="captured_image">
-        <div class="mt-2 text-center">
-            <button type="button" id="capture-btn" class="btn btn-primary" onclick="captureImage()">
+        <div class="mt-3 text-center">
+            <button type="button" id="capture-btn" class="btn btn-primary btn-lg" onclick="captureImage()">
                 <i class="fas fa-camera"></i> Take Photo
             </button>
+            <button type="button" id="retake-btn" class="btn btn-secondary btn-lg" onclick="retakePhoto()" style="display: none;">
+                <i class="fas fa-redo"></i> Retake
+            </button>
+        </div>
+        <div id="camera-status" class="mt-2 text-center text-muted">
+            <small>Camera initializing...</small>
         </div>
     </div>
     
@@ -288,14 +296,14 @@
             document.getElementById('biometric_type').value = 'Face ID';
             biometricVerified = true;
             updateSubmitButton();
-        }
-
-        let capturedImage = null;
-
         // Initialize camera
         async function initCamera() {
             const video = document.getElementById('camera-preview');
+            const statusDiv = document.getElementById('camera-status');
+            const captureBtn = document.getElementById('capture-btn');
+            
             try {
+                statusDiv.innerHTML = '<small>Requesting camera access...</small>';
                 const stream = await navigator.mediaDevices.getUserMedia({ 
                     video: { 
                         facingMode: 'user',
@@ -303,11 +311,17 @@
                         height: { ideal: 720 }
                     } 
                 });
+                
                 video.srcObject = stream;
-                document.getElementById('capture-btn').style.display = 'block';
+                await new Promise(resolve => video.onloadedmetadata = resolve);
+                await video.play();
+                
+                statusDiv.innerHTML = '<small class="text-success"><i class="fas fa-check"></i> Camera ready</small>';
+                captureBtn.style.display = 'inline-block';
                 return true;
             } catch (error) {
                 console.error('Error accessing camera:', error);
+                statusDiv.innerHTML = `<small class="text-danger"><i class="fas fa-exclamation-circle"></i> ${error.message}</small>`;
                 return false;
             }
         }
@@ -316,93 +330,129 @@
         async function captureImage() {
             const video = document.getElementById('camera-preview');
             const canvas = document.getElementById('capture-canvas');
-            const context = canvas.getContext('2d');
-            const previewContainer = document.getElementById('capture-preview');
-
-            // Set canvas dimensions to match video
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-
-            // Draw video frame to canvas
-            context.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-            // Convert to base64
-            capturedImage = canvas.toDataURL('image/jpeg');
+            const capturePreview = document.getElementById('capture-preview');
+            const captureBtn = document.getElementById('capture-btn');
+            const retakeBtn = document.getElementById('retake-btn');
+            const statusDiv = document.getElementById('camera-status');
             
-            // Show preview
-            previewContainer.src = capturedImage;
-            previewContainer.style.display = 'block';
-            video.style.display = 'none';
-
-            // Update hidden input
-            document.getElementById('captured-image').value = capturedImage;
-            
-            // Update UI
-            document.getElementById('capture-btn').style.display = 'none';
-            document.getElementById('retake-btn').style.display = 'block';
-            return true;
+            try {
+                // Set canvas dimensions to match video
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                
+                // Draw video frame to canvas
+                canvas.getContext('2d').drawImage(video, 0, 0);
+                
+                // Convert to base64 and store in hidden input
+                const imageData = canvas.toDataURL('image/jpeg', 0.8);
+                document.getElementById('captured-image').value = imageData;
+                
+                // Show preview image
+                capturePreview.src = imageData;
+                capturePreview.style.display = 'block';
+                video.style.display = 'none';
+                
+                // Show retake button, hide capture button
+                captureBtn.style.display = 'none';
+                retakeBtn.style.display = 'inline-block';
+                
+                // Stop camera stream
+                const stream = video.srcObject;
+                stream.getTracks().forEach(track => track.stop());
+                
+                statusDiv.innerHTML = '<small class="text-success"><i class="fas fa-check"></i> Photo captured</small>';
+            } catch (error) {
+                console.error('Error capturing photo:', error);
+                statusDiv.innerHTML = `<small class="text-danger"><i class="fas fa-exclamation-circle"></i> ${error.message}</small>`;
+            }
         }
 
         // Retake photo
-        function retakePhoto() {
+        async function retakePhoto() {
             const video = document.getElementById('camera-preview');
-            const previewContainer = document.getElementById('capture-preview');
+            const capturePreview = document.getElementById('capture-preview');
+            const captureBtn = document.getElementById('capture-btn');
+            const retakeBtn = document.getElementById('retake-btn');
+            const statusDiv = document.getElementById('camera-status');
             
-            // Reset UI
+            // Show video and capture button, hide preview and retake button
             video.style.display = 'block';
-            previewContainer.style.display = 'none';
-            document.getElementById('capture-btn').style.display = 'block';
-            document.getElementById('retake-btn').style.display = 'none';
-            capturedImage = null;
-            document.getElementById('captured-image').value = '';
+            capturePreview.style.display = 'none';
+            captureBtn.style.display = 'inline-block';
+            retakeBtn.style.display = 'none';
+            
+            // Restart camera
+            statusDiv.innerHTML = '<small>Restarting camera...</small>';
+            await initCamera();
         }
 
         // Initialize location services
         async function initLocation() {
             const addressDisplay = document.getElementById('address-display');
-            addressDisplay.innerHTML = 'Requesting location access...';
+            addressDisplay.innerHTML = '<div class="spinner-border spinner-border-sm text-primary" role="status"></div> <span class="ms-2">Getting your location...</span>';
             
             try {
-                // Create map instance
-                const map = L.map('map').setView([0, 0], 2);
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-                
-                // Request high accuracy location immediately with longer timeout
-                const position = await new Promise((resolve, reject) => {
-                    navigator.geolocation.getCurrentPosition(
-                        pos => resolve(pos),
-                        err => {
-                            // If high accuracy fails, try again with lower accuracy
-                            navigator.geolocation.getCurrentPosition(
-                                pos => resolve(pos),
-                                err => reject(err),
-                                { enableHighAccuracy: false, timeout: 30000, maximumAge: 0 }
-                            );
-                        },
-                        { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
-                    );
-                });
-                
-                // Update map with position
-                const { latitude, longitude } = position.coords;
-                map.setView([latitude, longitude], 16);
-                L.marker([latitude, longitude]).addTo(map);
-                
-                // Store coordinates
-                document.getElementById('latitude').value = latitude;
-                document.getElementById('longitude').value = longitude;
-                
-                // Get and display address
-                const address = await getAddressFromCoords(latitude, longitude);
-                if (address) {
-                    document.getElementById('address').value = address;
-                    addressDisplay.innerHTML = `
-                        <i class="fas fa-map-marker-alt text-success"></i>
-                        <span class="ms-2">${address}</span>
-                    `;
-                    locationVerified = true;
-                    updateSubmitButton();
+                if (!navigator.geolocation) {
+                    throw new Error('Geolocation is not supported by your browser');
                 }
+                
+                // Get location with watchPosition for better accuracy
+                const watchId = navigator.geolocation.watchPosition(
+                    async (position) => {
+                        const { latitude, longitude, accuracy } = position.coords;
+                        
+                        // Update map
+                        if (!map) {
+                            map = L.map('map').setView([latitude, longitude], 15);
+                            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+                        } else {
+                            map.setView([latitude, longitude], 15);
+                            // Clear existing markers
+                            map.eachLayer((layer) => {
+                                if (layer instanceof L.Marker) {
+                                    map.removeLayer(layer);
+                                }
+                            });
+                        }
+                        
+                        // Add marker with popup
+                        const marker = L.marker([latitude, longitude]).addTo(map);
+                        marker.bindPopup('Your current location').openPopup();
+                        
+                        // Store coordinates
+                        document.getElementById('latitude').value = latitude;
+                        document.getElementById('longitude').value = longitude;
+                        
+                        // Get and display address
+                        try {
+                            const address = await getAddressFromCoords(latitude, longitude);
+                            document.getElementById('address').value = address;
+                            addressDisplay.innerHTML = `
+                                <i class="fas fa-map-marker-alt text-success"></i>
+                                <span class="ms-2">${address}</span>
+                                <small class="d-block text-muted">Accuracy: ${Math.round(accuracy)}m</small>
+                            `;
+                            locationVerified = true;
+                            updateSubmitButton();
+                            
+                            // Stop watching if accuracy is good enough
+                            if (accuracy <= 30) {
+                                navigator.geolocation.clearWatch(watchId);
+                            }
+                        } catch (error) {
+                            console.error('Error getting address:', error);
+                        }
+                    },
+                    (error) => {
+                        console.error('Location error:', error);
+                        addressDisplay.innerHTML = `
+                            <i class="fas fa-exclamation-circle text-danger"></i>
+                            <span class="ms-2">${error.message}</span>
+                        `;
+                    },
+                    { enableHighAccuracy: true, timeout: 30000, maximumAge: 0 }
+                );
+                
             } catch (error) {
                 console.error('Location error:', error);
                 addressDisplay.innerHTML = `
