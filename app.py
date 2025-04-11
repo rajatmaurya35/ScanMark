@@ -24,7 +24,11 @@ app.secret_key = os.environ.get('FLASK_SECRET_KEY', secrets.token_hex(16))
 
 # Configure session
 app.config['SESSION_TYPE'] = 'filesystem'
+app.config['SESSION_FILE_DIR'] = '/tmp/flask_session'
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=24)
+
+# Create session directory
+os.makedirs(app.config['SESSION_FILE_DIR'], exist_ok=True)
 
 # Initialize Flask-Session
 Session(app)
