@@ -2,13 +2,8 @@
     "version": 2,
     "builds": [
         {
-            "src": "vercel_handler.py",
-            "use": "@vercel/python",
-            "config": {
-                "maxLambdaSize": "15mb",
-                "runtime": "python3.9",
-                "handler": "handler"
-            }
+            "src": "server.py",
+            "use": "@vercel/python"
         },
         {
             "src": "static/**",
@@ -22,11 +17,11 @@
         },
         {
             "src": "/(.*)",
-            "dest": "/vercel_handler.py"
+            "dest": "/server.py"
         }
     ],
     "env": {
-        "FLASK_APP": "app.py",
+        "FLASK_APP": "server.py",
         "FLASK_ENV": "production",
         "FLASK_SECRET_KEY": "your-secret-key-here",
         "DEBUG": "0",
