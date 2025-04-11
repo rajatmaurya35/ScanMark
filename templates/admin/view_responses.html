@@ -242,33 +242,40 @@
             }
         }
 
-        function initMap(elementId, lat, lng) {
+        function initMap(elementId, lat, lng, accuracy) {
             try {
                 const map = L.map(elementId).setView([lat, lng], 16);
                 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                    attribution: 'OpenStreetMap contributors'
+                    attribution: ' OpenStreetMap contributors'
                 }).addTo(map);
                 
                 // Add a marker with accuracy circle
-                const marker = L.marker([lat, lng]).addTo(map);
-                marker.bindPopup('Attendance Location').openPopup();
+                L.marker([lat, lng]).addTo(map);
+                if (accuracy) {
+                    L.circle([lat, lng], {
+                        radius: accuracy,
+                        fillColor: '#3388ff',
+                        fillOpacity: 0.2,
+                        color: '#3388ff',
+                        opacity: 0.5
+                    }).addTo(map);
+                }
             } catch (error) {
                 console.error('Error initializing map:', error);
-            }
-                    }
-                });
             }
         }
 
         // Initialize maps when document is ready
-        document.addEventListener('DOMContentLoaded', function() {
-            const mapElements = document.querySelectorAll('[id^="map-"]');
-            mapElements.forEach(function(element) {
-                const index = element.id.split('-')[1];
-                const lat = parseFloat(element.getAttribute('data-lat'));
-                const lng = parseFloat(element.getAttribute('data-lng'));
-                if (!isNaN(lat) && !isNaN(lng)) {
-                    initMap(element.id, lat, lng);
+        document.addEventListener('DOMContentLoaded', () => {
+            document.querySelectorAll('.map-container').forEach(element => {
+                if (element) {
+                    const index = element.id.split('-')[1];
+                    const lat = parseFloat(element.getAttribute('data-lat'));
+                    const lng = parseFloat(element.getAttribute('data-lng'));
+                    const accuracy = parseFloat(element.getAttribute('data-accuracy'));
+                    if (!isNaN(lat) && !isNaN(lng)) {
+                        initMap(element.id, lat, lng, accuracy);
+                    }
                 }
             });
         });
