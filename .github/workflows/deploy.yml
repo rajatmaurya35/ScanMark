@@ -1,4 +1,4 @@
-name: Deploy to Vercel and Netlify
+name: Deploy to Vercel
 
 on:
   push:
@@ -9,6 +9,19 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: ${{ steps.deploy.outputs.url }}
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      REDIS_URL: ${{ secrets.REDIS_URL }}
+      FLASK_SECRET_KEY: ${{ secrets.FLASK_SECRET_KEY }}
+      DEFAULT_PASSWORD: ${{ secrets.DEFAULT_PASSWORD }}
+      MAX_CONTENT_LENGTH: ${{ secrets.MAX_CONTENT_LENGTH }}
+      UPLOAD_FOLDER: '/tmp/uploads'
+
     steps:
       - uses: actions/checkout@v2
 
@@ -23,30 +36,16 @@ jobs:
           pip install -r requirements.txt
 
       - name: Deploy to Vercel
+        id: deploy
         uses: amondnet/vercel-action@v20
         with:
-          vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          vercel-token: ${{ env.VERCEL_TOKEN }}
+          vercel-org-id: ${{ env.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ env.VERCEL_PROJECT_ID }}
           vercel-args: '--prod'
         env:
-          REDIS_URL: ${{ secrets.REDIS_URL }}
-          FLASK_SECRET_KEY: ${{ secrets.FLASK_SECRET_KEY }}
-          DEFAULT_PASSWORD: ${{ secrets.DEFAULT_PASSWORD }}
-          MAX_CONTENT_LENGTH: ${{ secrets.MAX_CONTENT_LENGTH }}
-          UPLOAD_FOLDER: '/tmp/uploads'
-
-      - name: Deploy to Netlify
-        uses: nwtgck/actions-netlify@v1.2
-        with:
-          publish-dir: '.'
-          production-branch: master
-          deploy-message: 'Deploy from GitHub Actions'
-        env:
-          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
-          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
-          REDIS_URL: ${{ secrets.REDIS_URL }}
-          FLASK_SECRET_KEY: ${{ secrets.FLASK_SECRET_KEY }}
-          DEFAULT_PASSWORD: ${{ secrets.DEFAULT_PASSWORD }}
-          MAX_CONTENT_LENGTH: ${{ secrets.MAX_CONTENT_LENGTH }}
-          UPLOAD_FOLDER: '/tmp/uploads'
+          REDIS_URL: ${{ env.REDIS_URL }}
+          FLASK_SECRET_KEY: ${{ env.FLASK_SECRET_KEY }}
+          DEFAULT_PASSWORD: ${{ env.DEFAULT_PASSWORD }}
+          MAX_CONTENT_LENGTH: ${{ env.MAX_CONTENT_LENGTH }}
+          UPLOAD_FOLDER: ${{ env.UPLOAD_FOLDER }}
