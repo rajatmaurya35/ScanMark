@@ -296,39 +296,35 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             
             if (data.success && data.token) {
-                // Show QR code
-                const qrImage = document.getElementById('qrImage');
-                const qrUrl = `/static/qr_codes/${data.token}.png`;
-                
-                // Load QR code image
-                const img = new Image();
-                img.onload = function() {
-                    qrImage.src = qrUrl;
-                    qrImage.style.display = 'block';
+                // Handle QR code generation
+                if (data.qr_path) {
+                    const qrUrl = data.qr_path;
+                    showQRCode(qrUrl);
+                    // Hide loading spinner
+                    submitBtn.innerHTML = originalBtnText;
+                    submitBtn.disabled = false;
                     
-                    // Setup download button
-                    const downloadBtn = document.getElementById('downloadQR');
-                    downloadBtn.href = qrUrl;
-                    downloadBtn.download = `qr_${data.token}.png`;
-                    
-                    // Show QR modal
-                    const qrModal = new bootstrap.Modal(document.getElementById('qrModal'));
-                    qrModal.show();
+                    // Show success message
+                    const alert = document.createElement('div');
+                    alert.className = 'alert alert-success alert-dismissible fade show';
+                    alert.innerHTML = `
+                        <strong>Success!</strong> Session created successfully.
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    `;
+                    form.insertAdjacentElement('beforebegin', alert);
                     
                     // Clear form
                     form.reset();
                     
-                    // Auto-redirect after 3 seconds
+                    // Auto-dismiss alert
                     setTimeout(() => {
-                        window.location.href = '/admin/dashboard';
+                        alert.remove();
                     }, 3000);
-                };
-                img.onerror = function() {
-                    throw new Error('Failed to load QR code');
-                };
-                img.src = qrUrl;
+                } else {
+                    throw new Error('Failed to generate QR code');
+                }
             } else {
-                throw new Error('Failed to generate QR code');
+                throw new Error('Failed to create session');
             }
         } catch (error) {
             console.error('Error:', error);
