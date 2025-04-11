@@ -38,6 +38,7 @@ if not hasattr(app, 'initialized'):
     app.config['ACTIVE_SESSIONS'] = {'admin': {}}
     app.config['SESSION_RESPONSES'] = {'admin': {}}
     app.config['ATTENDANCE_RECORDS'] = []
+    app.config['FILE_STORAGE'] = {}
     app.initialized = True
 
 # Configure Flask app
@@ -293,17 +294,19 @@ def generate_session_qr(admin_username, session_id, session_data):
         # Generate QR code
         qr = segno.make(form_url)
         
-        # Save QR code to a BytesIO object
-        qr_io = BytesIO()
-        qr.save(qr_io, kind='png', scale=10)
-        qr_io.seek(0)
+        # Save QR code to memory
+        filename = f"{session_id}.png"
+        buffer = BytesIO()
+        qr.save(buffer, kind='png', scale=10, dark='black', light='white')
+        buffer.seek(0)
         
-        # Convert to base64
-        qr_base64 = base64.b64encode(qr_io.getvalue()).decode()
+        # Store in memory
+        app.config['FILE_STORAGE'][filename] = buffer.getvalue()
         
-        return qr_base64, form_url
+        return filename, form_url
     except Exception as e:
         print(f"Error generating QR code: {e}")
+        return None, None
         return None, None
 
 @app.route('/capture-face', methods=['POST'])
@@ -317,12 +320,12 @@ def capture_face():
         # Convert base64 to image
         image_data = image_data.split(',')[1]  # Remove data URL prefix
         image_bytes = b64decode(image_data)
-        image = Image.open(BytesIO(image_bytes))
-
-        # Save the image
+        
+        # Generate unique filename
         filename = f'face_{datetime.now().strftime("%Y%m%d_%H%M%S")}_{uuid.uuid4().hex[:8]}.jpg'
-        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        image.save(filepath)
+        
+        # Store in memory
+        app.config['FILE_STORAGE'][filename] = image_bytes
 
         return jsonify({
             'success': True,
@@ -554,23 +557,31 @@ def serve_qr(filename):
         # Set custom filename with session details
         custom_filename = f"{session_data.get('name', 'session')}_qr.png"
         
-        return send_file(
-            f'static/qr_codes/{filename}', 
-            mimetype='image/png',
-            as_attachment=True,
-            download_name=custom_filename
-        )
+        if filename in app.config['FILE_STORAGE']:
+            return Response(
+                app.config['FILE_STORAGE'][filename],
+                mimetype='image/png',
+                headers={
+                    'Content-Disposition': f'attachment; filename={custom_filename}'
+                }
+            )
+        return "QR code not found", 404
     except Exception as e:
         print(f"Error serving QR code: {str(e)}")
-        return "QR code not found", 404
+        return "Error serving QR code", 500
 
 @app.route('/static/uploads/<path:filename>')
 def serve_image(filename):
     try:
-        return send_file(f'static/uploads/{filename}', mimetype='image/jpeg')
+        if filename in app.config['FILE_STORAGE']:
+            return Response(
+                app.config['FILE_STORAGE'][filename],
+                mimetype='image/jpeg'
+            )
+        return "Image not found", 404
     except Exception as e:
         print(f"Error serving image: {str(e)}")
-        return "Image not found", 404
+        return "Error serving image", 500
 
 if __name__ == '__main__':
     app.run(debug=os.environ.get('DEBUG', False))
