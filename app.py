@@ -241,107 +241,78 @@ def generate_qr():
         }
     })
 
-@app.route('/create_session', methods=['POST'])
+@app.route('/create-session', methods=['POST'])
+@login_required
 def create_session():
-    if 'admin_username' not in session:
-        return jsonify({'error': 'Not logged in'}), 401
-    
-    admin_username = session['admin_username']
-    
-    # Get session details from form
-    session_name = request.form.get('session_name')
-    faculty_name = request.form.get('faculty_name')
-    branch = request.form.get('branch')
-    semester = request.form.get('semester')
-    
-    if not all([session_name, faculty_name, branch, semester]):
-        return jsonify({'error': 'All fields are required'}), 400
-    
     try:
-        # Generate unique session ID
+        data = request.get_json()
+        admin_username = session.get('admin_username')
+        
+        if not admin_username:
+            return jsonify({'error': 'Not logged in'}), 401
+        
+        # Generate session ID
         session_id = str(uuid.uuid4())
         
-        # Create session data
-        session_data = {
-            'name': session_name,
-            'faculty': faculty_name,
-            'branch': branch,
-            'semester': semester,
-            'created_at': datetime.now().isoformat(),
-            'qr_code': None,
-            'form_url': None
-        }
-        
-        # Ensure static directory exists
-        os.makedirs('static', exist_ok=True)
-        
-        # Generate QR code
-        form_url = url_for('attendance_form', admin=admin_username, session=session_id, _external=True)
-        qr = segno.make(form_url)
-        
-        # Save QR code with unique filename
-        qr_filename = f"qr_{admin_username}_{session_id}.png"
-        qr_path = os.path.join('static', qr_filename)
-        qr.save(qr_path, scale=10)
-        
-        # Update session data
-        session_data['qr_code'] = qr_filename
-        session_data['form_url'] = form_url
-        
-        # Initialize session storage if needed
-        if admin_username not in app.config['ACTIVE_SESSIONS']:
-            app.config['ACTIVE_SESSIONS'][admin_username] = {}
-            
-        if admin_username not in app.config['SESSION_RESPONSES']:
-            app.config['SESSION_RESPONSES'][admin_username] = {}
-            
-        # Store session data
-        app.config['ACTIVE_SESSIONS'][admin_username][session_id] = session_data
-        app.config['SESSION_RESPONSES'][admin_username][session_id] = []
-        
-        return jsonify({
-            'success': True,
-            'message': 'Session created successfully',
-            'session_id': session_id,
-            'qr_code': qr_filename,
-            'form_url': form_url
-        })
-        
-    except Exception as e:
-        app.logger.error(f"Error creating session: {str(e)}")
-        return jsonify({'error': 'Failed to generate QR code'}), 500
-
-def generate_session_qr(admin_username, session_id, session_data):
-    """Generate QR code for a session with pre-filled form fields"""
-    if admin_username not in app.config['SESSION_RESPONSES']:
-        app.config['SESSION_RESPONSES'][admin_username] = {}
-    
-    if session_id not in app.config['SESSION_RESPONSES'][admin_username]:
-        app.config['SESSION_RESPONSES'][admin_username][session_id] = []
-    
-    try:
-        # Generate attendance form URL with proper parameters
+        # Prepare QR code data
+        base_url = request.url_root.rstrip('/')
         qr_data = {
-            'session_id': session_id,
             'admin_username': admin_username,
             'session_id': session_id,
-            **session_data
+            'name': data.get('name', ''),
+            'require_location': data.get('require_location', False),
+            'require_face': data.get('require_face', False),
+            'require_both': data.get('require_both', False),
+            'latitude': data.get('latitude'),
+            'longitude': data.get('longitude'),
+            'max_distance': data.get('max_distance', 100)
         }
         qr_url = f"{base_url}/submit-attendance?{urlencode(qr_data)}"
         
         # Generate QR code
         qr = segno.make(qr_url)
-
+        
         # Save QR code to memory
         qr_filename = f'{session_id}.png'
         buffer = io.BytesIO()
         qr.save(buffer, kind='png', scale=10)
+        buffer.seek(0)
         qr_codes[qr_filename] = buffer.getvalue()
-
-        return qr_filename
+        
+        # Save session data
+        session_data = {
+            'id': session_id,
+            'admin_username': admin_username,
+            'created_at': datetime.now().isoformat(),
+            'qr_path': qr_filename,
+            'active': True,
+            **data
+        }
+        
+        # Store session in memory
+        if 'ACTIVE_SESSIONS' not in app.config:
+            app.config['ACTIVE_SESSIONS'] = {}
+        if admin_username not in app.config['ACTIVE_SESSIONS']:
+            app.config['ACTIVE_SESSIONS'][admin_username] = {}
+        app.config['ACTIVE_SESSIONS'][admin_username][session_id] = session_data
+        
+        # Initialize response storage if needed
+        if 'SESSION_RESPONSES' not in app.config:
+            app.config['SESSION_RESPONSES'] = {}
+        if admin_username not in app.config['SESSION_RESPONSES']:
+            app.config['SESSION_RESPONSES'][admin_username] = {}
+        app.config['SESSION_RESPONSES'][admin_username][session_id] = []
+        
+        return jsonify({
+            'success': True,
+            'session_id': session_id,
+            'qr_path': qr_filename
+        })
     except Exception as e:
-        app.logger.error(f'Error generating QR code: {str(e)}')
-        return None
+        app.logger.error(f'Error creating session: {str(e)}')
+        return jsonify({'error': str(e)}), 500
+    
+
 
 @app.route('/capture-face', methods=['POST'])
 def capture_face():
@@ -658,8 +629,10 @@ qr_codes = {}
 def serve_qr(filename):
     try:
         if filename in qr_codes:
+            buffer = io.BytesIO(qr_codes[filename])
+            buffer.seek(0)
             return send_file(
-                io.BytesIO(qr_codes[filename]),
+                buffer,
                 mimetype='image/png',
                 as_attachment=False,
                 download_name=f'{filename}.png'
