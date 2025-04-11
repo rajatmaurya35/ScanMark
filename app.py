@@ -1,19 +1,20 @@
-from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, Response, send_file
+from flask import Flask, request, jsonify, render_template, session, redirect, url_for, send_file, Response
 from flask_session import Session
-import os
-import secrets
-import hashlib
-import base64
-import segno
-from io import BytesIO
+from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta
-from geopy.geocoders import Nominatim
-from base64 import b64decode
+from urllib.parse import urlencode
+import segno
+import os
+import json
+import base64
+import re
+import base64
 from PIL import Image
 from urllib.parse import urlencode
 from functools import wraps
 import csv
 from io import StringIO
+import hashlib
 import json
 from pathlib import Path
 import uuid
@@ -32,6 +33,9 @@ os.makedirs(app.config['SESSION_FILE_DIR'], exist_ok=True)
 
 # Initialize Flask-Session
 Session(app)
+
+# Initialize in-memory storage for QR codes
+qr_codes = {}
 
 # Initialize storage with default data if not exists
 def init_app_storage():
@@ -333,21 +337,21 @@ def generate_session_qr(admin_username, session_id, session_data):
         qr_url = f"{base_url}/submit-attendance?{urlencode(qr_data)}"
         
         # Generate QR code
-        qr = segno.make(qr_url)
-        
-        # Save QR code to BytesIO
-        img_io = BytesIO()
-        qr.save(img_io, kind='png', scale=10)
-        img_io.seek(0)
-        
-        # Save to memory
-        filename = f"{session_id}.png"
-        store_file(img_io.getvalue(), filename)
-        
-        return filename, qr_url
+        qr = segno.make_qr({
+            'admin_username': admin_username,
+            'session_id': session_id,
+            'session_data': session_data
+        })
+
+        # Save QR code to memory
+        qr_filename = f'{session_id}.png'
+        buffer = io.BytesIO()
+        qr.save(buffer, kind='png', scale=10)
+        qr_codes[qr_filename] = buffer.getvalue()
+
+        return qr_filename, qr_url
     except Exception as e:
-        print(f"Error generating QR code: {e}")
-        return None, None
+        app.logger.error(f'Error generating QR code: {str(e)}')
         return None, None
 
 @app.route('/capture-face', methods=['POST'])
@@ -659,18 +663,22 @@ def delete_session(session_id):
         return jsonify({'success': True})
     return jsonify({'error': 'Session not found'}), 404
 
+qr_codes = {}
+
 @app.route('/qr/<path:filename>')
 def serve_qr(filename):
     try:
-        if filename in app.config['FILE_STORAGE']:
-            return Response(
-                app.config['FILE_STORAGE'][filename],
-                mimetype='image/png'
+        if filename in qr_codes:
+            return send_file(
+                io.BytesIO(qr_codes[filename]),
+                mimetype='image/png',
+                as_attachment=False,
+                download_name=f'{filename}.png'
             )
-        return "QR code not found", 404
+        return 'QR code not found', 404
     except Exception as e:
-        print(f"Error serving QR code: {str(e)}")
-        return "Error serving QR code", 500
+        app.logger.error(f'Error serving QR code: {str(e)}')
+        return 'Error serving QR code', 500
 
 @app.route('/uploads/<path:filename>')
 def serve_image(filename):
