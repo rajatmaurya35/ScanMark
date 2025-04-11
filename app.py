@@ -1,13 +1,12 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, Response, send_file
+from flask_session import Session
 import os
 import secrets
 import hashlib
 import base64
 import segno
 from io import BytesIO
-from datetime import datetime
-import cv2
-import numpy as np
+from datetime import datetime, timedelta
 from geopy.geocoders import Nominatim
 from base64 import b64decode
 from PIL import Image
@@ -23,23 +22,34 @@ import uuid
 app = Flask(__name__)
 app.secret_key = os.environ.get('FLASK_SECRET_KEY', secrets.token_hex(16))
 
+# Configure session
+app.config['SESSION_TYPE'] = 'redis'
+app.config['SESSION_REDIS_URL'] = os.environ.get('REDIS_URL', 'redis://localhost:6379')
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=24)
+
+# Initialize Flask-Session
+Session(app)
+
+# Initialize storage with default data if not exists
+def init_app_storage():
+    if 'ADMINS' not in app.config:
+        # Default admin
+        DEFAULT_PASSWORD = os.environ.get('DEFAULT_PASSWORD', 'admin123')
+        DEFAULT_ADMIN = {
+            'username': 'admin',
+            'password': DEFAULT_PASSWORD,
+            'created_at': datetime.now().isoformat()
+        }
+        
+        # Initialize persistent storage
+        app.config['ADMINS'] = {'admin': DEFAULT_ADMIN}
+        app.config['ACTIVE_SESSIONS'] = {'admin': {}}
+        app.config['SESSION_RESPONSES'] = {'admin': {}}
+        app.config['ATTENDANCE_RECORDS'] = []
+        app.config['FILE_STORAGE'] = {}
+
 # Initialize storage
-if not hasattr(app, 'initialized'):
-    # Default admin
-    DEFAULT_PASSWORD = os.environ.get('DEFAULT_PASSWORD', 'admin123')
-    DEFAULT_ADMIN = {
-        'username': 'admin',
-        'password': DEFAULT_PASSWORD,
-        'created_at': datetime.now().isoformat()
-    }
-    
-    # Initialize persistent storage
-    app.config['ADMINS'] = {'admin': DEFAULT_ADMIN}
-    app.config['ACTIVE_SESSIONS'] = {'admin': {}}
-    app.config['SESSION_RESPONSES'] = {'admin': {}}
-    app.config['ATTENDANCE_RECORDS'] = []
-    app.config['FILE_STORAGE'] = {}
-    app.initialized = True
+init_app_storage()
 
 # Configure Flask app
 app.config['MAX_CONTENT_LENGTH'] = int(os.environ.get('MAX_CONTENT_LENGTH', 16 * 1024 * 1024))  # 16MB max file size
@@ -49,7 +59,18 @@ app.config['UPLOAD_FOLDER'] = os.environ.get('UPLOAD_FOLDER', '/tmp')  # Use /tm
 
 # Helper functions for session data
 def get_admin_sessions(admin_username):
-    return app.config['ACTIVE_SESSIONS'].get(admin_username, {})
+    init_app_storage()
+    sessions = app.config['ACTIVE_SESSIONS'].get(admin_username, {})
+    # Clean up expired sessions
+    current_time = datetime.now()
+    active_sessions = {}
+    for session_id, session_data in sessions.items():
+        if 'expires_at' not in session_data:
+            session_data['expires_at'] = (current_time + timedelta(hours=24)).isoformat()
+        if datetime.fromisoformat(session_data['expires_at']) > current_time:
+            active_sessions[session_id] = session_data
+    app.config['ACTIVE_SESSIONS'][admin_username] = active_sessions
+    return active_sessions
 
 def get_session_responses(admin_username, session_id):
     return app.config['SESSION_RESPONSES'].get(admin_username, {}).get(session_id, [])
@@ -360,26 +381,44 @@ def verify_location():
 @app.route('/submit-attendance', methods=['GET', 'POST'])
 def submit_attendance():
     if request.method == 'GET':
-        # Show the attendance form
-        session_id = request.args.get('session_id')
-        admin_username = request.args.get('admin')
-        
-        if admin_username and session_id:
+        try:
+            # Show the attendance form
+            session_id = request.args.get('session_id')
+            admin_username = request.args.get('admin')
+            
+            if not session_id or not admin_username:
+                return "Missing session_id or admin parameter", 400
+            
+            # Get active sessions
             active_sessions = get_admin_sessions(admin_username)
-            if session_id in active_sessions:
-                session_data = active_sessions[session_id]
-                # Add session name if not present
-                if 'name' not in session_data:
-                    session_data['name'] = f'Session {session_id[:8]}'
-                return render_template('attendance_form.html', 
-                                   session=session_data,
-                                   session_id=session_id,
-                                   admin_username=admin_username,
-                                   show_location=True)
-            else:
-                return "Session not found", 404
-        else:
-            return "Invalid parameters", 400
+            if session_id not in active_sessions:
+                return "Session not found or expired", 404
+            
+            session_data = active_sessions[session_id]
+            # Add session name if not present
+            if 'name' not in session_data:
+                session_data['name'] = f'Session {session_id[:8]}'
+            
+            # Store current session info
+            if 'current_sessions' not in session:
+                session['current_sessions'] = {}
+            session['current_sessions'][session_id] = {
+                'admin': admin_username,
+                'accessed_at': datetime.now().isoformat()
+            }
+            session.modified = True
+            
+            return render_template('attendance_form.html', 
+                               session=session_data,
+                               session_id=session_id,
+                               admin_username=admin_username,
+                               show_location=True)
+        except Exception as e:
+            print(f"Error in submit_attendance GET: {str(e)}")
+            return jsonify({
+                'success': False,
+                'message': 'An error occurred loading the form. Please try again.'
+            }), 500
             
     elif request.method == 'POST':
         try:

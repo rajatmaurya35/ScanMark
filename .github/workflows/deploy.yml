@@ -29,6 +29,12 @@ jobs:
           vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
           vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
           vercel-args: '--prod'
+        env:
+          REDIS_URL: ${{ secrets.REDIS_URL }}
+          FLASK_SECRET_KEY: ${{ secrets.FLASK_SECRET_KEY }}
+          DEFAULT_PASSWORD: ${{ secrets.DEFAULT_PASSWORD }}
+          MAX_CONTENT_LENGTH: ${{ secrets.MAX_CONTENT_LENGTH }}
+          UPLOAD_FOLDER: '/tmp/uploads'
 
       - name: Deploy to Netlify
         uses: nwtgck/actions-netlify@v1.2
@@ -39,3 +45,8 @@ jobs:
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+          REDIS_URL: ${{ secrets.REDIS_URL }}
+          FLASK_SECRET_KEY: ${{ secrets.FLASK_SECRET_KEY }}
+          DEFAULT_PASSWORD: ${{ secrets.DEFAULT_PASSWORD }}
+          MAX_CONTENT_LENGTH: ${{ secrets.MAX_CONTENT_LENGTH }}
+          UPLOAD_FOLDER: '/tmp/uploads'
