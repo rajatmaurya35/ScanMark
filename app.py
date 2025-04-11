@@ -16,12 +16,12 @@ import uuid
 
 # Initialize Flask app
 app = Flask(__name__)
-app.secret_key = secrets.token_hex(16)
+app.secret_key = os.environ.get('FLASK_SECRET_KEY', secrets.token_hex(16))
 
 # Initialize storage
 if not hasattr(app, 'initialized'):
     # Default admin
-    DEFAULT_PASSWORD = 'admin123'
+    DEFAULT_PASSWORD = os.environ.get('DEFAULT_PASSWORD', 'admin123')
     DEFAULT_ADMIN = {
         'username': 'admin',
         'password': DEFAULT_PASSWORD,
@@ -36,8 +36,8 @@ if not hasattr(app, 'initialized'):
     app.initialized = True
 
 # Configure Flask app
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
-app.config['UPLOAD_FOLDER'] = '/tmp'  # Use /tmp for Vercel
+app.config['MAX_CONTENT_LENGTH'] = int(os.environ.get('MAX_CONTENT_LENGTH', 16 * 1024 * 1024))  # 16MB max file size
+app.config['UPLOAD_FOLDER'] = os.environ.get('UPLOAD_FOLDER', '/tmp')  # Use /tmp for Vercel
 
 # No need to create directories in serverless environment
 
@@ -520,4 +520,4 @@ def serve_image(filename):
         return "Image not found", 404
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=os.environ.get('DEBUG', False))

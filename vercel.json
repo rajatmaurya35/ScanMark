@@ -2,7 +2,7 @@
     "version": 2,
     "builds": [
         {
-            "src": "vercel_app.py",
+            "src": "app.py",
             "use": "@vercel/python",
             "config": {
                 "maxLambdaSize": "15mb",
@@ -21,11 +21,15 @@
         },
         {
             "src": "/(.*)",
-            "dest": "/vercel_app.py"
+            "dest": "/app.py"
         }
     ],
     "env": {
         "FLASK_APP": "app.py",
-        "FLASK_ENV": "production"
+        "FLASK_ENV": "production",
+        "FLASK_SECRET_KEY": "your-secret-key-here",
+        "DEBUG": "0",
+        "MAX_CONTENT_LENGTH": "16777216",
+        "UPLOAD_FOLDER": "/tmp"
     }
 }
