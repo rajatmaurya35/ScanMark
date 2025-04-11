@@ -221,7 +221,7 @@
             </div>
             <div class="modal-body text-center">
                 <div class="mb-3">
-                    <img id="qrImage" src="" alt="QR Code" style="max-width: 300px; margin-bottom: 1rem;">
+                    <img src="{{ url_for('serve_qr', filename=qr_path) }}" alt="QR Code" class="img-fluid mb-3">
                 </div>
                 <div class="alert alert-info" role="alert">
                     <i class="fas fa-info-circle"></i> Students can scan this QR code to mark their attendance.
