@@ -16,4 +16,4 @@ itsdangerous==1.1.0
 Jinja2==2.11.3
 MarkupSafe==2.0.1
 geopy==2.2.0
-redis==4.5.1
+redis==3.5.3

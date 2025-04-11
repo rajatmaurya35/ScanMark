@@ -23,15 +23,5 @@
             "src": "/(.*)",
             "dest": "/app.py"
         }
-    ],
-    "env": {
-        "FLASK_APP": "app.py",
-        "FLASK_ENV": "production",
-        "FLASK_SECRET_KEY": "@!vercel-generated-secret-key!@",
-        "DEBUG": "0",
-        "MAX_CONTENT_LENGTH": "16777216",
-        "UPLOAD_FOLDER": "/tmp/uploads",
-        "REDIS_URL": "@redis-url",
-        "SESSION_TYPE": "redis"
-    }
+    ]
 }
