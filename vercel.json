@@ -1,0 +1,29 @@
+{
+    "version": 2,
+    "builds": [
+        {
+            "src": "app.py",
+            "use": "@vercel/python"
+        },
+        {
+            "src": "static/**",
+            "use": "@vercel/static"
+        }
+    ],
+    "routes": [
+        {
+            "src": "/static/(.*)",
+            "dest": "/static/$1"
+        },
+        {
+            "src": "/(.*)",
+            "dest": "app.py"
+        }
+    ],
+    "env": {
+        "FLASK_APP": "app.py",
+        "FLASK_ENV": "production",
+        "GOOGLE_CLIENT_ID": "748645327636-1scd4f35u930na2pommpajnma17eon4g.apps.googleusercontent.com",
+        "GOOGLE_REDIRECT_URI": "https://scan-mark.vercel.app/auth/google/callback"
+    }
+}

@@ -1,0 +1,346 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Create Session{% endblock %}
+
+{% block styles %}
+<style>
+    .create-session-container {
+        max-width: 500px;
+        margin: 2rem auto;
+        padding: 2rem;
+        background: rgba(255, 255, 255, 0.95);
+        border-radius: 15px;
+        box-shadow: 0 15px 35px rgba(0,0,0,0.2);
+        backdrop-filter: blur(10px);
+    }
+
+    .create-session-container h2 {
+        color: var(--primary-color);
+        text-align: center;
+        margin-bottom: 1.5rem;
+        font-weight: 600;
+    }
+
+    .create-session-container p {
+        text-align: center;
+        color: #666;
+        margin-bottom: 2rem;
+    }
+
+    .form-control {
+        border-radius: 10px;
+        padding: 12px;
+        border: 2px solid #eee;
+        transition: all 0.3s;
+        margin-bottom: 1rem;
+    }
+
+    .form-control:focus {
+        box-shadow: none;
+        border-color: var(--primary-color);
+    }
+
+    .form-select {
+        border-radius: 10px;
+        padding: 12px;
+        border: 2px solid #eee;
+        transition: all 0.3s;
+        margin-bottom: 1rem;
+    }
+
+    .form-select:focus {
+        box-shadow: none;
+        border-color: var(--primary-color);
+    }
+
+    .btn {
+        border-radius: 10px;
+        padding: 12px;
+        font-weight: 600;
+        transition: all 0.3s;
+        width: 100%;
+        margin-bottom: 0.5rem;
+    }
+
+    .btn-primary {
+        background: var(--primary-color);
+        border: none;
+    }
+
+    .btn-primary:hover {
+        background: var(--secondary-color);
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(46, 204, 113, 0.3);
+    }
+
+    .btn-secondary {
+        background: #6c757d;
+        border: none;
+    }
+
+    .btn-secondary:hover {
+        background: #5a6268;
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(108, 117, 125, 0.3);
+    }
+
+    .invalid-feedback {
+        display: none;
+        color: #dc3545;
+        font-size: 0.875rem;
+        margin-top: -0.5rem;
+        margin-bottom: 1rem;
+    }
+
+    .form-control.is-invalid {
+        border-color: #dc3545;
+    }
+
+    .form-select.is-invalid {
+        border-color: #dc3545;
+    }
+
+    .loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(255, 255, 255, 0.8);
+        display: none;
+        justify-content: center;
+        align-items: center;
+        z-index: 9999;
+    }
+
+    .loading-spinner {
+        width: 50px;
+        height: 50px;
+        border: 5px solid #f3f3f3;
+        border-top: 5px solid var(--primary-color);
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="create-session-container">
+    <h2>Create New Session</h2>
+    <p>Fill in the details to create a new attendance session</p>
+    
+    <form id="createSessionForm" method="POST" action="{{ url_for('create_session') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        
+        <div class="mb-3">
+            <input type="text" class="form-control" id="name" name="name" placeholder="Session Name" required
+                   pattern="[A-Za-z0-9\s\-_]{3,50}" title="3-50 characters, alphanumeric with spaces, hyphens and underscores">
+            <div class="invalid-feedback" id="nameError">
+                Please enter a valid session name (3-50 characters)
+            </div>
+        </div>
+        
+        <div class="mb-3">
+            <input type="text" class="form-control" id="faculty" name="faculty" placeholder="Faculty Name" required
+                   pattern="[A-Za-z\s\.]{3,50}" title="3-50 characters, letters, spaces and dots only">
+            <div class="invalid-feedback" id="facultyError">
+                Please enter a valid faculty name (3-50 characters)
+            </div>
+        </div>
+        
+        <div class="mb-3">
+            <select class="form-select" id="branch" name="branch" required>
+                <option value="" disabled selected>Select Branch</option>
+                <option value="Computer">Computer</option>
+                <option value="IT">IT</option>
+                <option value="Mechanical">Mechanical</option>
+                <option value="Civil">Civil</option>
+                <option value="Electrical">Electrical</option>
+                <option value="EC">EC</option>
+            </select>
+            <div class="invalid-feedback" id="branchError">
+                Please select a branch
+            </div>
+        </div>
+        
+        <div class="mb-3">
+            <select class="form-select" id="semester" name="semester" required>
+                <option value="" disabled selected>Select Semester</option>
+                <option value="1st">1st Semester</option>
+                <option value="2nd">2nd Semester</option>
+                <option value="3rd">3rd Semester</option>
+                <option value="4th">4th Semester</option>
+                <option value="5th">5th Semester</option>
+                <option value="6th">6th Semester</option>
+                <option value="7th">7th Semester</option>
+                <option value="8th">8th Semester</option>
+            </select>
+            <div class="invalid-feedback" id="semesterError">
+                Please select a semester
+            </div>
+        </div>
+        
+        <button type="submit" class="btn btn-primary">Create Session</button>
+        <button type="button" class="btn btn-secondary" onclick="window.location.href='/admin/dashboard'">Cancel</button>
+    </form>
+</div>
+
+<div class="loading-overlay" id="loadingOverlay">
+    <div class="loading-spinner"></div>
+</div>
+
+<!-- Error Modal -->
+<div class="modal fade" id="errorModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Error</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-0" id="errorMessage">Failed to create session. Please try again.</p>
+            </div>
+            <div class="modal-footer justify-content-center">
+                <button type="button" class="btn btn-primary" data-bs-dismiss="modal">OK</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- QR Code Modal -->
+<div class="modal fade" id="qrModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Session Created Successfully!</h5>
+            </div>
+            <div class="modal-body text-center">
+                <div class="mb-3">
+                    <img id="qrImage" src="" alt="QR Code" style="max-width: 300px; margin-bottom: 1rem;">
+                </div>
+                <div class="alert alert-info" role="alert">
+                    <i class="fas fa-info-circle"></i> Students can scan this QR code to mark their attendance.
+                </div>
+            </div>
+            <div class="modal-footer justify-content-center">
+                <a id="downloadQR" href="#" class="btn btn-primary" download>
+                    <i class="fas fa-download"></i> Download QR
+                </a>
+                <a href="/admin/dashboard" class="btn btn-success">
+                    <i class="fas fa-check"></i> Go to Dashboard
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('createSessionForm');
+    const loadingOverlay = document.getElementById('loadingOverlay');
+    const inputs = form.querySelectorAll('input, select');
+    
+    // Client-side validation
+    inputs.forEach(input => {
+        input.addEventListener('input', function() {
+            validateInput(this);
+        });
+        
+        input.addEventListener('blur', function() {
+            validateInput(this);
+        });
+    });
+    
+    function validateInput(input) {
+        const isValid = input.checkValidity();
+        input.classList.toggle('is-invalid', !isValid);
+        const feedback = input.nextElementSibling;
+        if (feedback && feedback.classList.contains('invalid-feedback')) {
+            feedback.style.display = isValid ? 'none' : 'block';
+        }
+        return isValid;
+    }
+    
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(form);
+        const submitBtn = form.querySelector('button[type="submit"]');
+        
+        try {
+            // Show loading overlay
+            loadingOverlay.style.display = 'flex';
+            
+            // Disable submit button
+            submitBtn.disabled = true;
+            
+            const response = await fetch('/admin/create-session', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': formData.get('csrf_token')
+                }
+            });
+            
+            const data = await response.json();
+            
+            if (!response.ok) {
+                throw new Error(data.message || 'Failed to create session');
+            }
+            
+            if (data.success && data.token) {
+                // Show QR code
+                const qrImage = document.getElementById('qrImage');
+                const qrUrl = `/static/qr_codes/${data.token}.png`;
+                
+                // Load QR code image
+                const img = new Image();
+                img.onload = function() {
+                    qrImage.src = qrUrl;
+                    qrImage.style.display = 'block';
+                    
+                    // Setup download button
+                    const downloadBtn = document.getElementById('downloadQR');
+                    downloadBtn.href = qrUrl;
+                    downloadBtn.download = `qr_${data.token}.png`;
+                    
+                    // Show QR modal
+                    const qrModal = new bootstrap.Modal(document.getElementById('qrModal'));
+                    qrModal.show();
+                    
+                    // Clear form
+                    form.reset();
+                    
+                    // Auto-redirect after 3 seconds
+                    setTimeout(() => {
+                        window.location.href = '/admin/dashboard';
+                    }, 3000);
+                };
+                img.onerror = function() {
+                    throw new Error('Failed to load QR code');
+                };
+                img.src = qrUrl;
+            } else {
+                throw new Error('Failed to generate QR code');
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            const errorModal = new bootstrap.Modal(document.getElementById('errorModal'));
+            document.getElementById('errorMessage').textContent = error.message || 'An unexpected error occurred. Please try again.';
+            errorModal.show();
+        } finally {
+            // Hide loading overlay
+            loadingOverlay.style.display = 'none';
+            // Re-enable submit button
+            submitBtn.disabled = false;
+        }
+    });
+});</script>
+{% endblock %}
