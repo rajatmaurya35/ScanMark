@@ -313,22 +313,34 @@ def generate_session_qr(admin_username, session_id, session_data):
     
     try:
         # Generate attendance form URL with proper parameters
+        qr_data = {
+            'session_id': session_id,
+            'admin_username': admin_username,
+            'session_name': session_data.get('name', ''),
+            'require_location': session_data.get('require_location', False),
+            'latitude': session_data.get('latitude', ''),
+            'longitude': session_data.get('longitude', ''),
+            'max_distance': session_data.get('max_distance', 100),
+            'require_face': session_data.get('require_face', False),
+            'require_both': session_data.get('require_both', False)
+        }
+        
         base_url = request.host_url.rstrip('/')
-        form_url = f"{base_url}/submit-attendance?admin={admin_username}&session_id={session_id}"
+        qr_url = f"{base_url}/submit-attendance?{urlencode(qr_data)}"
         
         # Generate QR code
-        qr = segno.make(form_url)
+        qr = segno.make(qr_url)
         
-        # Save QR code to memory
+        # Save QR code to BytesIO
+        img_io = BytesIO()
+        qr.save(img_io, kind='png', scale=10)
+        img_io.seek(0)
+        
+        # Save to memory
         filename = f"{session_id}.png"
-        buffer = BytesIO()
-        qr.save(buffer, kind='png', scale=10, dark='black', light='white')
-        buffer.seek(0)
+        store_file(img_io.getvalue(), filename)
         
-        # Store in memory
-        app.config['FILE_STORAGE'][filename] = buffer.getvalue()
-        
-        return filename, form_url
+        return filename, qr_url
     except Exception as e:
         print(f"Error generating QR code: {e}")
         return None, None
@@ -643,31 +655,20 @@ def delete_session(session_id):
         return jsonify({'success': True})
     return jsonify({'error': 'Session not found'}), 404
 
-@app.route('/static/qr_codes/<path:filename>')
+@app.route('/qr/<path:filename>')
 def serve_qr(filename):
     try:
-        # Get session details from filename
-        session_id = filename.split('.')[0]  # Remove .png extension
-        admin_username = session.get('admin_username')
-        session_data = app.config['ACTIVE_SESSIONS'].get(admin_username, {}).get(session_id, {})
-        
-        # Set custom filename with session details
-        custom_filename = f"{session_data.get('name', 'session')}_qr.png"
-        
         if filename in app.config['FILE_STORAGE']:
             return Response(
                 app.config['FILE_STORAGE'][filename],
-                mimetype='image/png',
-                headers={
-                    'Content-Disposition': f'attachment; filename={custom_filename}'
-                }
+                mimetype='image/png'
             )
         return "QR code not found", 404
     except Exception as e:
         print(f"Error serving QR code: {str(e)}")
         return "Error serving QR code", 500
 
-@app.route('/static/uploads/<path:filename>')
+@app.route('/uploads/<path:filename>')
 def serve_image(filename):
     try:
         if filename in app.config['FILE_STORAGE']:
