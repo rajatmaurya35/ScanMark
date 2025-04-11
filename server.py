@@ -1,34 +1,31 @@
-from flask import Flask, request, redirect, send_from_directory
-from app import app as main_app
+from flask import Flask, request, send_from_directory
 import os
 
 app = Flask(__name__)
 
-@app.route('/', defaults={'path': ''}, methods=['GET', 'POST'])
-@app.route('/<path:path>', methods=['GET', 'POST'])
-def catch_all(path):
-    # Handle static files
-    if path.startswith('static/'):
-        return send_from_directory(os.path.dirname(__file__), path)
-    
-    with main_app.test_client() as client:
-        if request.method == 'POST':
-            # Forward POST request with all data
-            response = client.post(
-                '/' + path,
-                data=request.form,
-                headers={key: value for key, value in request.headers if key != 'Host'},
-                cookies=request.cookies
-            )
-        else:
-            # Forward GET request with all data
-            response = client.get(
-                '/' + path,
-                headers={key: value for key, value in request.headers if key != 'Host'},
-                cookies=request.cookies
-            )
-        
-        # Copy response headers
-        headers = [(name, value) for name, value in response.headers if name != 'Content-Length']
-        
-        return response.get_data(as_text=True), response.status_code, headers
+# Import all routes and configurations from app.py
+from app import *
+
+# Configure the app
+app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'your-secret-key-here')
+app.config['MAX_CONTENT_LENGTH'] = int(os.environ.get('MAX_CONTENT_LENGTH', 16 * 1024 * 1024))
+app.config['UPLOAD_FOLDER'] = os.environ.get('UPLOAD_FOLDER', '/tmp')
+
+# Static file handler
+@app.route('/static/<path:filename>')
+def serve_static(filename):
+    return send_from_directory('static', filename)
+
+# Error handler for 500 errors
+@app.errorhandler(500)
+def internal_error(error):
+    app.logger.error(f'Server Error: {error}')
+    return 'Internal Server Error', 500
+
+# Error handler for 404 errors
+@app.errorhandler(404)
+def not_found_error(error):
+    return 'Page Not Found', 404
+
+if __name__ == '__main__':
+    app.run()

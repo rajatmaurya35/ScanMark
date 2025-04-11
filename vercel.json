@@ -3,18 +3,14 @@
     "builds": [
         {
             "src": "server.py",
-            "use": "@vercel/python"
-        },
-        {
-            "src": "static/**",
-            "use": "@vercel/static"
+            "use": "@vercel/python",
+            "config": {
+                "maxLambdaSize": "15mb",
+                "runtime": "python3.9"
+            }
         }
     ],
     "routes": [
-        {
-            "src": "/static/(.*)",
-            "dest": "/static/$1"
-        },
         {
             "src": "/(.*)",
             "dest": "/server.py"
@@ -28,6 +24,6 @@
         "MAX_CONTENT_LENGTH": "16777216",
         "UPLOAD_FOLDER": "/tmp",
         "GOOGLE_CLIENT_ID": "784645127656-1ccdef35u935nad2uommpplomn75xoe4g.apps.googleusercontent.com",
-        "GOOGLE_REDIRECT_URI": "https://scan-mark-9sht1rc29-rajatmaurya35s-projects.vercel.app/oauth/google/callback"
+        "GOOGLE_REDIRECT_URI": "https://scan-mark-5h9bw1hm7-rajatmaurya35s-projects.vercel.app/oauth/google/callback"
     }
 }
