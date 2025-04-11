@@ -2,7 +2,7 @@
     "version": 2,
     "builds": [
         {
-            "src": "app.py",
+            "src": "vercel.py",
             "use": "@vercel/python",
             "config": {
                 "maxLambdaSize": "15mb",
@@ -21,7 +21,13 @@
         },
         {
             "src": "/(.*)",
-            "dest": "/app.py"
+            "dest": "/vercel.py"
         }
-    ]
+    ],
+    "functions": {
+        "vercel.py": {
+            "memory": 1024,
+            "maxDuration": 10
+        }
+    }
 }
