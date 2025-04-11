@@ -52,9 +52,14 @@ init_app_storage()
 
 # Configure Flask app
 app.config['MAX_CONTENT_LENGTH'] = int(os.environ.get('MAX_CONTENT_LENGTH', 16 * 1024 * 1024))  # 16MB max file size
-app.config['UPLOAD_FOLDER'] = os.environ.get('UPLOAD_FOLDER', '/tmp')  # Use /tmp for Vercel
 
-# No need to create directories in serverless environment
+# Use in-memory storage for files in serverless environment
+app.config['FILE_STORAGE'] = {}
+
+# Helper function to store files in memory
+def store_file(file_data, filename):
+    app.config['FILE_STORAGE'][filename] = file_data
+    return filename
 
 # Helper functions for session data
 def get_admin_sessions(admin_username):
@@ -415,88 +420,142 @@ def submit_attendance():
         except Exception as e:
             print(f"Error in submit_attendance GET: {str(e)}")
             return jsonify({
-                'success': False,
-                'message': 'An error occurred loading the form. Please try again.'
+                'error': 'Server error',
+                'message': 'An error occurred loading the form.'
             }), 500
-            
+
     elif request.method == 'POST':
         try:
             # Get form data
-            enrollment_no = request.form.get('enrollment_no')
             student_name = request.form.get('student_name')
+            student_id = request.form.get('student_id')
             session_id = request.form.get('session_id')
-            admin_username = request.form.get('admin')
+            admin_username = request.form.get('admin_username')
+            biometric_type = request.form.get('biometric_type')
             latitude = request.form.get('latitude')
             longitude = request.form.get('longitude')
-            address = request.form.get('address')
-            biometric_verified = request.form.get('biometric_verified')
-            
-            print(f"Received attendance data: {request.form}")
+            image_data = request.files.get('image')
             
             # Validate required fields
-            if not all([enrollment_no, student_name, session_id, admin_username]):
+            if not all([student_name, student_id, session_id, admin_username, biometric_type]):
                 return jsonify({
-                    'success': False,
-                    'message': 'Please fill in all required fields'
+                    'error': 'Missing required fields',
+                    'message': 'Please fill in all required fields.'
                 }), 400
-            
-            # Validate location
-            if not all([latitude, longitude, address]):
+
+            # Validate session exists and is active
+            sessions = app.config['ACTIVE_SESSIONS'].get(admin_username, {})
+            if session_id not in sessions:
                 return jsonify({
-                    'success': False,
-                    'message': 'Location information is required'
-                }), 400
-            
-            # Validate face verification
-            if biometric_verified != 'true':
-                return jsonify({
-                    'success': False,
-                    'message': 'Face verification is required'
-                }), 400
-            
-            # Check if session exists and is active
-            active_sessions = get_admin_sessions(admin_username)
-            if session_id not in active_sessions:
-                return jsonify({
-                    'success': False,
-                    'message': 'Invalid or expired session'
-                }), 400
-                
-            session_data = active_sessions[session_id]
+                    'error': 'Invalid session',
+                    'message': 'The session does not exist.'
+                }), 404
+
+            session_data = sessions[session_id]
             if not session_data.get('active', False):
                 return jsonify({
-                    'success': False,
-                    'message': 'This session is no longer active'
+                    'error': 'Inactive session',
+                    'message': 'This session is no longer active.'
                 }), 400
-            
-            # Create attendance record with proper address
-            attendance_data = {
-                'enrollment_no': enrollment_no,
+
+            # Verify location if required
+            if session_data.get('require_location', False):
+                if not all([latitude, longitude]):
+                    return jsonify({
+                        'error': 'Location required',
+                        'message': 'Location information is required for this session.'
+                    }), 400
+
+                # Convert coordinates to float
+                try:
+                    lat = float(latitude)
+                    lon = float(longitude)
+                except ValueError:
+                    return jsonify({
+                        'error': 'Invalid coordinates',
+                        'message': 'Invalid location coordinates provided.'
+                    }), 400
+
+                # Check if coordinates are within range
+                target_lat = float(session_data.get('latitude', 0))
+                target_lon = float(session_data.get('longitude', 0))
+                max_distance = float(session_data.get('max_distance', 100))  # meters
+
+                # Calculate distance using Haversine formula
+                from math import sin, cos, sqrt, atan2, radians
+                R = 6371e3  # Earth's radius in meters
+
+                lat1, lon1 = radians(lat), radians(lon)
+                lat2, lon2 = radians(target_lat), radians(target_lon)
+
+                dlat = lat2 - lat1
+                dlon = lon2 - lon1
+
+                a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
+                c = 2 * atan2(sqrt(a), sqrt(1-a))
+                distance = R * c
+
+                if distance > max_distance:
+                    return jsonify({
+                        'error': 'Location out of range',
+                        'message': f'You are too far from the target location. Maximum allowed distance is {max_distance} meters.'
+                    }), 400
+
+            # Process and save image if provided
+            image_path = None
+            if image_data and biometric_type in ['face', 'both']:
+                try:
+                    # Read and validate image
+                    image_content = image_data.read()
+                    img = Image.open(BytesIO(image_content))
+                    
+                    # Generate unique filename
+                    filename = f"{uuid.uuid4()}.jpg"
+                    
+                    # Save to memory
+                    img_io = BytesIO()
+                    img.save(img_io, 'JPEG')
+                    img_io.seek(0)
+                    
+                    # Store file in memory
+                    image_path = f"uploads/{filename}"
+                    store_file(img_io.getvalue(), image_path)
+                    
+                except Exception as e:
+                    print(f"Error processing image: {str(e)}")
+                    return jsonify({
+                        'error': 'Image processing failed',
+                        'message': 'Failed to process the provided image.'
+                    }), 500
+
+            # Record the attendance
+            attendance_record = {
                 'student_name': student_name,
+                'student_id': student_id,
                 'session_id': session_id,
                 'admin_username': admin_username,
-                'created_at': datetime.now().isoformat(),
+                'biometric_type': biometric_type,
                 'latitude': latitude,
                 'longitude': longitude,
-                'address': address if address else 'Location not available',
-                'biometric_verified': True,
-                'biometric_type': 'Face ID'
+                'image_path': image_path,
+                'created_at': datetime.now().isoformat()
             }
-            
-            # Store attendance data
-            add_session_response(admin_username, session_id, attendance_data)
-            
+
+            # Add to session responses
+            add_session_response(admin_username, session_id, attendance_record)
+
             return jsonify({
                 'success': True,
-                'message': 'Attendance marked successfully!'
+                'message': 'Attendance recorded successfully.'
             })
-                
+
         except Exception as e:
-            print(f"Error in submit_attendance: {str(e)}")
+            print(f"Error recording attendance: {str(e)}")
             return jsonify({
-                'success': False,
-                'message': 'An error occurred. Please try again.'
+                'error': 'Server error',
+                'message': 'An error occurred while recording attendance.'
             }), 500
+
 @app.route('/admin/view-responses/<session_id>')
 @login_required
 def view_responses(session_id):
