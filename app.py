@@ -324,24 +324,13 @@ def generate_session_qr(admin_username, session_id, session_data):
         qr_data = {
             'session_id': session_id,
             'admin_username': admin_username,
-            'session_name': session_data.get('name', ''),
-            'require_location': session_data.get('require_location', False),
-            'latitude': session_data.get('latitude', ''),
-            'longitude': session_data.get('longitude', ''),
-            'max_distance': session_data.get('max_distance', 100),
-            'require_face': session_data.get('require_face', False),
-            'require_both': session_data.get('require_both', False)
+            'session_id': session_id,
+            **session_data
         }
-        
-        base_url = request.host_url.rstrip('/')
         qr_url = f"{base_url}/submit-attendance?{urlencode(qr_data)}"
         
         # Generate QR code
-        qr = segno.make_qr({
-            'admin_username': admin_username,
-            'session_id': session_id,
-            'session_data': session_data
-        })
+        qr = segno.make(qr_url)
 
         # Save QR code to memory
         qr_filename = f'{session_id}.png'
@@ -349,10 +338,10 @@ def generate_session_qr(admin_username, session_id, session_data):
         qr.save(buffer, kind='png', scale=10)
         qr_codes[qr_filename] = buffer.getvalue()
 
-        return qr_filename, qr_url
+        return qr_filename
     except Exception as e:
         app.logger.error(f'Error generating QR code: {str(e)}')
-        return None, None
+        return None
 
 @app.route('/capture-face', methods=['POST'])
 def capture_face():
