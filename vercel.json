@@ -19,7 +19,7 @@
         "DEBUG": "0",
         "MAX_CONTENT_LENGTH": "16777216",
         "UPLOAD_FOLDER": "/tmp",
-        "GOOGLE_CLIENT_ID": "your-client-id-here",
-        "GOOGLE_REDIRECT_URI": "https://scan-mark-h0whc1xc2-rajatmaurya35s-projects.vercel.app/oauth2callback"
+        "GOOGLE_CLIENT_ID": "784645127656-1ccdef35u935nad2uommpplomn75xoe4g.apps.googleusercontent.com",
+        "GOOGLE_REDIRECT_URI": "https://scan-mark.vercel.app/oauth/google/callback"
     }
 }
