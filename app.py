@@ -6,6 +6,11 @@ import base64
 import segno
 from io import BytesIO
 from datetime import datetime
+import cv2
+import numpy as np
+from geopy.geocoders import Nominatim
+from base64 import b64decode
+from PIL import Image
 from urllib.parse import urlencode
 from functools import wraps
 import csv
@@ -300,6 +305,54 @@ def generate_session_qr(admin_username, session_id, session_data):
     except Exception as e:
         print(f"Error generating QR code: {e}")
         return None, None
+
+@app.route('/capture-face', methods=['POST'])
+def capture_face():
+    try:
+        # Get the base64 image data from the request
+        image_data = request.json.get('image')
+        if not image_data:
+            return jsonify({'error': 'No image data received'}), 400
+
+        # Convert base64 to image
+        image_data = image_data.split(',')[1]  # Remove data URL prefix
+        image_bytes = b64decode(image_data)
+        image = Image.open(BytesIO(image_bytes))
+
+        # Save the image
+        filename = f'face_{datetime.now().strftime("%Y%m%d_%H%M%S")}_{uuid.uuid4().hex[:8]}.jpg'
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        image.save(filepath)
+
+        return jsonify({
+            'success': True,
+            'filename': filename
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/verify-location', methods=['POST'])
+def verify_location():
+    try:
+        data = request.get_json()
+        latitude = data.get('latitude')
+        longitude = data.get('longitude')
+
+        if not latitude or not longitude:
+            return jsonify({'error': 'Location data missing'}), 400
+
+        # Use Nominatim to get location details
+        geolocator = Nominatim(user_agent="scanmark")
+        location = geolocator.reverse(f"{latitude}, {longitude}")
+
+        return jsonify({
+            'success': True,
+            'address': location.address if location else 'Unknown location',
+            'latitude': latitude,
+            'longitude': longitude
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/submit-attendance', methods=['GET', 'POST'])
 def submit_attendance():

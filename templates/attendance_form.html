@@ -185,25 +185,35 @@
                     stream.getTracks().forEach(track => track.stop());
                 }
                 
+                // Try to get front camera with high quality
                 stream = await navigator.mediaDevices.getUserMedia({
                     video: {
                         facingMode: 'user',
                         width: { ideal: 1280 },
-                        height: { ideal: 720 }
+                        height: { ideal: 720 },
+                        aspectRatio: { ideal: 1.7778 },
+                        frameRate: { ideal: 30 }
                     }
                 });
                 
                 video.srcObject = stream;
+                await video.play(); // Ensure video is playing
+                
                 video.style.display = 'block';
                 photo.style.display = 'none';
                 startButton.style.display = 'none';
                 takePhotoBtn.style.display = 'inline-block';
                 retakePhotoBtn.style.display = 'none';
                 
-                showStatus('Camera ready', 'success');
+                // Log camera capabilities
+                const track = stream.getVideoTracks()[0];
+                const capabilities = track.getCapabilities();
+                console.log('Camera capabilities:', capabilities);
+                
+                showStatus('Camera ready - Please center your face in the frame', 'success');
             } catch (err) {
                 console.error('Camera error:', err);
-                showStatus('Camera error: ' + err.message, 'danger');
+                showStatus('Camera error: ' + err.message + '. Please ensure camera permissions are granted.', 'danger');
             }
         }
 
@@ -217,18 +227,32 @@
         function takePhoto() {
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
-            canvas.getContext('2d').drawImage(video, 0, 0);
+            const ctx = canvas.getContext('2d');
             
-            photo.src = canvas.toDataURL('image/jpeg');
+            // Draw video frame
+            ctx.drawImage(video, 0, 0);
+            
+            // Add timestamp and location
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+            ctx.fillRect(10, canvas.height - 30, 250, 20);
+            ctx.fillStyle = 'black';
+            ctx.font = '14px Arial';
+            const timestamp = new Date().toLocaleString();
+            ctx.fillText(timestamp, 15, canvas.height - 15);
+            
+            // Convert to high-quality JPEG
+            photo.src = canvas.toDataURL('image/jpeg', 0.95);
             photo.style.display = 'block';
             video.style.display = 'none';
             takePhotoBtn.style.display = 'none';
             retakePhotoBtn.style.display = 'inline-block';
             
+            // Stop camera stream
             if (stream) {
                 stream.getTracks().forEach(track => track.stop());
             }
             
+            showStatus('Photo captured successfully with timestamp', 'success');
             checkSubmitButton();
         }
 
