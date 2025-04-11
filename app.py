@@ -23,8 +23,7 @@ app = Flask(__name__)
 app.secret_key = os.environ.get('FLASK_SECRET_KEY', secrets.token_hex(16))
 
 # Configure session
-app.config['SESSION_TYPE'] = 'redis'
-app.config['SESSION_REDIS_URL'] = os.environ.get('REDIS_URL', 'redis://localhost:6379')
+app.config['SESSION_TYPE'] = 'filesystem'
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=24)
 
 # Initialize Flask-Session
