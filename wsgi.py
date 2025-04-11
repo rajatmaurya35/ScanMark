@@ -1,5 +1,5 @@
 from app import app
 
 # This is for Vercel deployment
-def handler(request, context):
-    return app
+def handler(event, context):
+    return app(event, context)
