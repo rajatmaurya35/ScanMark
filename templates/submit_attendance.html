@@ -1,0 +1,254 @@
+{% extends "base.html" %}
+
+{% block title %}Submit Attendance{% endblock %}
+
+{% block styles %}
+<style>
+    .attendance-form-container {
+        max-width: 500px;
+        margin: 2rem auto;
+        padding: 2rem;
+        background: rgba(255, 255, 255, 0.95);
+        border-radius: 15px;
+        box-shadow: 0 15px 35px rgba(0,0,0,0.2);
+        backdrop-filter: blur(10px);
+    }
+
+    .session-info {
+        background: var(--primary-color);
+        color: white;
+        padding: 1rem;
+        border-radius: 10px;
+        margin-bottom: 2rem;
+    }
+
+    .session-info h3 {
+        margin: 0;
+        font-size: 1.2rem;
+    }
+
+    .session-info p {
+        margin: 0.5rem 0 0;
+        font-size: 0.9rem;
+        opacity: 0.9;
+    }
+
+    .form-control {
+        border-radius: 10px;
+        padding: 12px;
+        border: 2px solid #eee;
+        transition: all 0.3s;
+        margin-bottom: 1rem;
+    }
+
+    .form-control:focus {
+        box-shadow: none;
+        border-color: var(--primary-color);
+    }
+
+    .btn {
+        border-radius: 10px;
+        padding: 12px;
+        font-weight: 600;
+        transition: all 0.3s;
+        width: 100%;
+    }
+
+    .btn-primary {
+        background: var(--primary-color);
+        border: none;
+    }
+
+    .btn-primary:hover {
+        background: var(--secondary-color);
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(46, 204, 113, 0.3);
+    }
+
+    .loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(255, 255, 255, 0.8);
+        display: none;
+        justify-content: center;
+        align-items: center;
+        z-index: 9999;
+    }
+
+    .loading-spinner {
+        width: 50px;
+        height: 50px;
+        border: 5px solid #f3f3f3;
+        border-top: 5px solid var(--primary-color);
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="attendance-form-container">
+    <div class="session-info">
+        <h3>{{ session.name }}</h3>
+        <p>Faculty: {{ session.faculty }}</p>
+        <p>Branch: {{ session.branch }}</p>
+        <p>Semester: {{ session.semester }}</p>
+    </div>
+
+    <form id="attendanceForm" method="POST">
+        <div class="mb-3">
+            <input type="text" class="form-control" id="student_id" name="student_id" placeholder="Student ID" required
+                   pattern="[0-9]{12}" title="Please enter a valid 12-digit student ID">
+            <div class="invalid-feedback" id="studentIdError">
+                Please enter a valid student ID (12 digits)
+            </div>
+        </div>
+
+        <div class="mb-3">
+            <input type="text" class="form-control" id="student_name" name="student_name" placeholder="Student Name" required
+                   pattern="[A-Za-z\s]{3,50}" title="3-50 characters, letters and spaces only">
+            <div class="invalid-feedback" id="studentNameError">
+                Please enter a valid student name (3-50 characters)
+            </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary">Submit Attendance</button>
+    </form>
+</div>
+
+<div class="loading-overlay" id="loadingOverlay">
+    <div class="loading-spinner"></div>
+</div>
+
+<!-- Success Modal -->
+<div class="modal fade" id="successModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Success</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-center text-success">
+                    <i class="fas fa-check-circle fa-3x mb-3"></i><br>
+                    Attendance recorded successfully!
+                </p>
+            </div>
+            <div class="modal-footer justify-content-center">
+                <button type="button" class="btn btn-primary" data-bs-dismiss="modal">OK</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Error Modal -->
+<div class="modal fade" id="errorModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Error</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-center text-danger">
+                    <i class="fas fa-exclamation-circle fa-3x mb-3"></i><br>
+                    <span id="errorMessage">An error occurred. Please try again.</span>
+                </p>
+            </div>
+            <div class="modal-footer justify-content-center">
+                <button type="button" class="btn btn-primary" data-bs-dismiss="modal">OK</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('attendanceForm');
+    const loadingOverlay = document.getElementById('loadingOverlay');
+    const inputs = form.querySelectorAll('input');
+    
+    // Client-side validation
+    inputs.forEach(input => {
+        input.addEventListener('input', function() {
+            validateInput(this);
+        });
+        
+        input.addEventListener('blur', function() {
+            validateInput(this);
+        });
+    });
+    
+    function validateInput(input) {
+        const isValid = input.checkValidity();
+        input.classList.toggle('is-invalid', !isValid);
+        const feedback = input.nextElementSibling;
+        if (feedback && feedback.classList.contains('invalid-feedback')) {
+            feedback.style.display = isValid ? 'none' : 'block';
+        }
+        return isValid;
+    }
+    
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(form);
+        const submitBtn = form.querySelector('button[type="submit"]');
+        
+        try {
+            // Show loading overlay
+            loadingOverlay.style.display = 'flex';
+            
+            // Disable submit button
+            submitBtn.disabled = true;
+            
+            const response = await fetch(window.location.href, {
+                method: 'POST',
+                body: formData
+            });
+            
+            const data = await response.json();
+            
+            if (!response.ok) {
+                throw new Error(data.message || 'Failed to submit attendance');
+            }
+            
+            if (data.success) {
+                // Show success modal
+                const successModal = new bootstrap.Modal(document.getElementById('successModal'));
+                successModal.show();
+                
+                // Clear form
+                form.reset();
+                
+                // Auto-close modal after 2 seconds
+                setTimeout(() => {
+                    successModal.hide();
+                }, 2000);
+            } else {
+                throw new Error(data.message || 'Failed to submit attendance');
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            const errorModal = new bootstrap.Modal(document.getElementById('errorModal'));
+            document.getElementById('errorMessage').textContent = error.message || 'An unexpected error occurred. Please try again.';
+            errorModal.show();
+        } finally {
+            // Hide loading overlay
+            loadingOverlay.style.display = 'none';
+            // Re-enable submit button
+            submitBtn.disabled = false;
+        }
+    });
+});</script>
+{% endblock %}
