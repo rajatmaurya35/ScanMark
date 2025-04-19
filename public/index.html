@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ScanMark</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #2ECC71;
+            color: #fff;
+        }
+        .container {
+            text-align: center;
+            padding: 2rem;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            color: #333;
+            max-width: 600px;
+            width: 90%;
+        }
+        .logo {
+            margin-bottom: 1rem;
+        }
+        .logo-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            grid-gap: 5px;
+            width: 60px;
+            height: 60px;
+            margin: 0 auto;
+        }
+        .logo-square {
+            background-color: #2ECC71;
+            border-radius: 4px;
+        }
+        h1 {
+            margin: 1rem 0;
+            color: #2ECC71;
+        }
+        p {
+            margin-bottom: 1.5rem;
+        }
+        .btn {
+            display: inline-block;
+            background-color: #2ECC71;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 4px;
+            text-decoration: none;
+            font-weight: bold;
+            transition: background-color 0.3s;
+        }
+        .btn:hover {
+            background-color: #27ae60;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">
+            <div class="logo-grid">
+                <div class="logo-square"></div>
+                <div class="logo-square"></div>
+                <div class="logo-square"></div>
+                <div class="logo-square"></div>
+            </div>
+        </div>
+        <h1>ScanMark</h1>
+        <p>QR-based attendance tracking system</p>
+        <p>Server is running successfully!</p>
+        <a href="/health" class="btn">Check API Status</a>
+    </div>
+</body>
+</html>
