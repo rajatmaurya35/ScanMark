@@ -1,0 +1,16 @@
+{
+  "name": "scanmark-full",
+  "version": "1.0.0",
+  "description": "ScanMark QR Attendance System",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "build": "pip install -r requirements.txt"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.0.3",
+    "python-shell": "^5.0.0"
+  }
+}
