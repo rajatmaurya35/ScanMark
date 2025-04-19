@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Available Routes</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+<div class="container mt-4">
+  <h1>Available Routes</h1>
+  <ul class="list-group">
+    {% for route in routes %}
+      <li class="list-group-item"><a href="{{ route }}">{{ route }}</a></li>
+    {% endfor %}
+  </ul>
+</div>
+</body>
+</html>
