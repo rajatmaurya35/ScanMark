@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register Admin - ScanMark</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #2ecc71;
+            --secondary-color: #27ae60;
+        }
+        body {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+        }
+        .login-container {
+            padding: 20px;
+            perspective: 1000px;
+        }
+        .card {
+            border: none;
+            border-radius: 15px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.2);
+            backdrop-filter: blur(10px);
+            background: rgba(255, 255, 255, 0.95);
+            transform-style: preserve-3d;
+            transition: transform 0.5s;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+        }
+        .logo {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        .logo i {
+            font-size: 48px;
+            color: var(--primary-color);
+        }
+        .logo h2 {
+            color: #333;
+            font-size: 2rem;
+            font-weight: 600;
+            margin: 1rem 0;
+        }
+        .form-control {
+            border-radius: 10px;
+            padding: 12px;
+            border: 2px solid #eee;
+            transition: all 0.3s;
+        }
+        .form-control:focus {
+            box-shadow: none;
+            border-color: var(--primary-color);
+        }
+        .input-group-text {
+            border-radius: 10px 0 0 10px;
+            border: 2px solid #eee;
+            border-right: none;
+            background: white;
+        }
+        .form-control {
+            border-radius: 0 10px 10px 0;
+        }
+        .btn-primary {
+            background: var(--primary-color);
+            border: none;
+            padding: 12px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            transition: all 0.3s;
+        }
+        .btn-primary:hover {
+            background: var(--secondary-color);
+            transform: translateY(-2px);
+        }
+        .card-footer {
+            background: none;
+            border-top: 1px solid #eee;
+        }
+        .password-requirements {
+            font-size: 0.8rem;
+            color: #666;
+            margin-top: 0.5rem;
+            padding-left: 1rem;
+        }
+        .requirement {
+            display: flex;
+            align-items: center;
+            margin: 2px 0;
+        }
+        .requirement.met {
+            color: var(--primary-color);
+        }
+        .requirement:not(.met) {
+            color: #dc3545;
+        }
+        .requirement i {
+            margin-right: 0.5rem;
+            font-size: 0.7rem;
+        }
+        /* Squares logo animation */
+        .squares-logo {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 5px;
+            width: 60px;
+            margin: 0 auto 15px;
+        }
+        .square {
+            width: 25px;
+            height: 25px;
+            background: var(--primary-color);
+            border-radius: 5px;
+            animation: pulse 2s infinite;
+        }
+        .square:nth-child(2) { animation-delay: 0.5s; }
+        .square:nth-child(3) { animation-delay: 1s; }
+        .square:nth-child(4) { animation-delay: 1.5s; }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(0.9); }
+            100% { transform: scale(1); }
+        }
+        @keyframes successFadeOut { to { opacity: 0; transform: scale(0.95); } }
+        .success-animation { animation: successFadeOut 0.8s ease-out forwards; }
+        .welcome-animation { animation: welcomeSlideIn 1.2s cubic-bezier(0.68, -0.55, 0.265, 1.55); }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-md-5">
+                <div class="login-container">
+                    <div class="card animate__animated animate__zoomIn">
+                        <div class="card-body p-4">
+                            <div class="logo">
+                                <div class="squares-logo">
+                                    <div class="square"></div>
+                                    <div class="square"></div>
+                                    <div class="square"></div>
+                                    <div class="square"></div>
+                                </div>
+                                <h3 class="text-success mb-3">ScanMark</h3>
+                            </div>
+                            
+                            {% with messages = get_flashed_messages(with_categories=true) %}
+                                {% if messages %}
+                                    {% for category, message in messages %}
+                                        <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                                            {{ message }}
+                                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                                        </div>
+                                    {% endfor %}
+                                {% endif %}
+                            {% endwith %}
+
+                            <form id="registerForm" method="POST" action="/admin/register/">
+                                <div class="mb-3">
+                                    <div class="input-group">
+                                        <span class="input-group-text">
+                                            <i class="fas fa-user"></i>
+                                        </span>
+                                        <input type="text" class="form-control" name="username" placeholder="Username" required 
+                                               minlength="3" maxlength="20" pattern="[a-zA-Z0-9_]+" 
+                                               title="3-20 characters, letters, numbers and underscore only">
+                                    </div>
+                                </div>
+                                <div class="mb-4">
+                                    <div class="input-group">
+                                        <span class="input-group-text">
+                                            <i class="fas fa-lock"></i>
+                                        </span>
+                                        <input type="password" class="form-control" name="password" id="password" placeholder="Password" required 
+                                               minlength="8" pattern="^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d@$!%*#?&]{8,}$">
+                                    </div>
+                                    <div class="password-requirements mt-2">
+                                        <div class="requirement" id="lengthReq">
+                                            <i class="fas fa-circle"></i> At least 8 characters
+                                        </div>
+                                        <div class="requirement" id="letterReq">
+                                            <i class="fas fa-circle"></i> At least one letter
+                                        </div>
+                                        <div class="requirement" id="numberReq">
+                                            <i class="fas fa-circle"></i> At least one number
+                                        </div>
+                                    </div>
+                                </div>
+                                <button type="submit" id="registerButton" class="btn btn-primary w-100 mb-3">
+                                    <span class="normal-state"><i class="fas fa-user-plus me-2"></i>Sign Up</span>
+                                    <span class="loading-state" style="display: none;"><span class="spinner-border spinner-border-sm me-2"></span>Signing Up...</span>
+                                </button>
+                            </form>
+                        </div>
+                        <div class="card-footer text-center py-3">
+                            <p class="mb-0">Already have an account? <a href="/admin/login/" class="text-primary">Sign In</a></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script>
+    document.getElementById('registerForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      const form = this;
+      const btn = document.getElementById('registerButton');
+      const normal = btn.querySelector('.normal-state');
+      const loading = btn.querySelector('.loading-state');
+      btn.disabled = true; normal.style.display = 'none'; loading.style.display = 'inline-block';
+      try {
+        const res = await fetch(form.action, { method: 'POST', body: new FormData(form), headers: {'X-Requested-With': 'XMLHttpRequest'} });
+        const data = await res.json();
+        if (data.success) {
+          // Show welcome animation
+          const card = document.querySelector('.card');
+          card.classList.remove('animate__zoomIn');
+          const welcomeMsg = document.createElement('div');
+          welcomeMsg.className = 'text-center welcome-animation';
+          welcomeMsg.innerHTML = `
+            <div class="squares-logo mb-4">
+              <div class="square"></div><div class="square"></div><div class="square"></div><div class="square"></div>
+            </div>
+            <h3 class="text-success mb-3">Welcome!</h3>
+            <p class="text-muted">Redirecting you shortly...</p>`;
+          card.classList.add('success-animation');
+          setTimeout(() => { card.innerHTML = ''; card.appendChild(welcomeMsg);
+            setTimeout(() => window.location.href = data.redirect, 1500); }, 800);
+        } else {
+          Swal.fire({ icon: 'error', title: 'Registration Failed', text: data.error || 'Error' });
+          btn.disabled = false;
+          loading.style.display = 'none';
+          normal.style.display = 'inline-block';
+        }
+      } catch (err) {
+        console.error(err);
+        form.submit();
+      }
+    });
+    </script>
+</body>
+</html>
