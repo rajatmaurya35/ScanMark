@@ -36,47 +36,29 @@ def create_client(supabase_url, supabase_key):
                     self.headers = headers
                     self.table = table
                     self.base_url = f"{url}/rest/v1"
+                    self._action = None
+                    self._data = None
+                    self._upsert = False
                 
                 def select(self, *columns):
+                    self._action = 'select'
                     self.select_columns = ','.join(columns) if columns else '*'
                     return self
                 
                 def insert(self, data, upsert=False):
-                    try:
-                        url = f"{self.base_url}/{self.table}"
-                        params = {'prefer': 'return=representation'}
-                        if upsert:
-                            params['on_conflict'] = 'id'
-                        response = requests.post(url, headers=self.headers, params=params, json=data)
-                        response.raise_for_status()
-                        # Return the raw response data, not wrapped in a data attribute
-                        return response.json()
-                    except Exception as e:
-                        print(f"Supabase insert error: {str(e)}")
-                        # Return empty list instead of empty dict for consistency
-                        return []
+                    self._action = 'insert'
+                    self._data = data
+                    self._upsert = upsert
+                    return self
                 
                 def update(self, data):
-                    try:
-                        url = f"{self.base_url}/{self.table}"
-                        params = {'prefer': 'return=representation'}
-                        response = requests.patch(url, headers=self.headers, params=params, json=data)
-                        response.raise_for_status()
-                        return response.json()
-                    except Exception as e:
-                        print(f"Supabase update error: {str(e)}")
-                        return []
+                    self._action = 'update'
+                    self._data = data
+                    return self
                 
                 def delete(self):
-                    try:
-                        url = f"{self.base_url}/{self.table}"
-                        params = {'prefer': 'return=representation'}
-                        response = requests.delete(url, headers=self.headers, params=params)
-                        response.raise_for_status()
-                        return response.json()
-                    except Exception as e:
-                        print(f"Supabase delete error: {str(e)}")
-                        return []
+                    self._action = 'delete'
+                    return self
                 
                 def eq(self, column, value):
                     self.filter_column = column
@@ -105,25 +87,47 @@ def create_client(supabase_url, supabase_key):
                 def execute(self):
                     try:
                         url = f"{self.base_url}/{self.table}"
-                        params = {'select': self.select_columns}
-                        if hasattr(self, 'filter_column') and hasattr(self, 'filter_value'):
+                        params = {}
+                        # Apply filters
+                        if hasattr(self, 'filter_column'):
                             params[self.filter_column] = f'eq.{self.filter_value}'
+                        if hasattr(self, 'filters'):
+                            params.update(self.filters)
                         if hasattr(self, 'order_clause'):
                             params['order'] = self.order_clause
-                        if hasattr(self, 'filters'):
-                            # Add all filters directly to params
-                            params.update(self.filters)
-                        response = requests.get(url, headers=self.headers, params=params)
-                        response.raise_for_status()  # Raise exception for HTTP errors
+                        # Handle actions
+                        if self._action == 'select':
+                            params['select'] = self.select_columns
+                            response = requests.get(url, headers=self.headers, params=params)
+                        elif self._action == 'insert':
+                            params = {'prefer': 'return=representation'}
+                            if getattr(self, '_upsert', False):
+                                params['on_conflict'] = 'id'
+                            response = requests.post(url, headers=self.headers, params=params, json=self._data)
+                        elif self._action == 'update':
+                            params_pref = {'prefer': 'return=representation'}
+                            params_pref.update(params)
+                            response = requests.patch(url, headers=self.headers, params=params_pref, json=self._data)
+                        elif self._action == 'delete':
+                            params_pref = {'prefer': 'return=representation'}
+                            params_pref.update(params)
+                            response = requests.delete(url, headers=self.headers, params=params_pref)
+                        else:
+                            raise ValueError(f"Unknown action {self._action}")
+                        response.raise_for_status()
                         return response.json()
                     except Exception as e:
-                        print(f"Supabase API error: {str(e)}")
-                        # Return empty list on error to prevent app from crashing
+                        print(f"Supabase client error ({self._action}): {e}")
                         return []
             
             return Table(self.url, self.headers, table_name)
     
     return SupabaseClient(supabase_url, supabase_key)
+
+# Initialize Supabase client
+supabase_url = os.getenv('SUPABASE_URL', 'https://aaluawvcohqfhevkdnuv.supabase.co')
+supabase_key = os.getenv('SUPABASE_KEY', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFhbHVhd3Zjb2hxZmhldmtkbnV2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDIyNzY3MzcsImV4cCI6MjA1Nzg1MjczN30.kKL_B4sw1nwY6lbzgyPHQYoC_uqDsPkT51ZOnhr6MNA')
+supabase = create_client(supabase_url, supabase_key)
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask import Flask, render_template, request, redirect, session, jsonify, flash
 import csv
@@ -231,11 +235,6 @@ app.config['SESSION_COOKIE_HTTPONLY'] = True
 # Disable Talisman for local development
 if os.environ.get('FLASK_ENV') == 'production':
     Talisman(app, content_security_policy=None)
-
-# Initialize Supabase client
-SUPABASE_URL = os.getenv('SUPABASE_URL', 'https://aaluawvcohqfhevkdnuv.supabase.co')
-SUPABASE_KEY = os.getenv('SUPABASE_KEY', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFhbHVhd3Zjb2hxZmhldmtkbnV2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDIyNzY3MzcsImV4cCI6MjA1Nzg1MjczN30.kKL_B4sw1nwY6lbzgyPHQYoC_uqDsPkT51ZOnhr6MNA')
-supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # Create tables if they don't exist
 def init_db():
@@ -480,37 +479,39 @@ def get_qr(token):
 @login_required
 def toggle_session(token):
     try:
-        # Fetch session
-        res = supabase.table('qr_tokens').select('expires_at').eq('token', token).execute()
-        if not res:
-            return jsonify({'error': 'Session not found'}), 404
-        expires_at_str = res[0]['expires_at']
-        # Parse expiry
-        expires_at = datetime.fromisoformat(expires_at_str.replace('Z', '+00:00'))
+        # Toggle session expiry via Supabase REST
+        url = f"{supabase_url}/rest/v1/qr_tokens"
+        params = {'token': f'eq.{token}'}
+        response = requests.get(url, headers=supabase.headers, params=params)
+        data = response.json()
+        if not data:
+            return jsonify({'success': False, 'error': 'Session not found'}), 404
+        expires_at = datetime.fromisoformat(data[0]['expires_at'].replace('Z', '+00:00'))
         if expires_at.tzinfo is None:
             expires_at = expires_at.replace(tzinfo=timezone.utc)
         now = datetime.now(timezone.utc)
-        # Toggle: if active (future expiry), deactivate by setting expiry to now; else activate for 24h
         new_expires_at = now if expires_at > now else now + timedelta(hours=24)
-        # Update expiry only
-        supabase.table('qr_tokens').update({
-            'expires_at': new_expires_at.isoformat()
-        }).eq('token', token).execute()
+        # PATCH update
+        patch = requests.patch(url, headers=supabase.headers, params=params, json={'expires_at': new_expires_at.isoformat()})
+        patch.raise_for_status()
         return jsonify({'success': True})
     except Exception as e:
         print(f"Toggle session error: {e}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/admin/delete-session/<token>', methods=['POST'])
 @login_required
 def delete_session(token):
     try:
-        # Delete the session
-        supabase.table('qr_tokens').delete().eq('token', token).execute()
+        # Delete session via Supabase REST
+        url = f"{supabase_url}/rest/v1/qr_tokens"
+        params = {'token': f'eq.{token}'}
+        resp = requests.delete(url, headers=supabase.headers, params=params)
+        resp.raise_for_status()
         return jsonify({'success': True})
     except Exception as e:
-        print(f"Error deleting session: {e}")
-        return jsonify({'error': str(e)}), 500
+        print(f"Delete session error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/admin/attendance-history/<token>', methods=['GET'])
 @login_required
@@ -587,15 +588,15 @@ def generate_qr():
         # Validate input
         if not all([session_name, faculty, branch, semester]):
             missing = [field for field in ['session','faculty','branch','semester'] if not data.get(field)]
-            return jsonify({'error': f"Missing fields: {', '.join(missing)}"}), 400
+            return jsonify({'success': False, 'error': f"Missing fields: {', '.join(missing)}"}), 400
         # Build session string identifier
         session_str = f"{session_name} - {faculty} - {branch} - {semester}"
         # Prevent duplicate active session
         now = datetime.now(timezone.utc)
-        existing = supabase.table('qr_tokens')\
-            .select('token', 'expires_at')\
-            .eq('session', session_str)\
-            .execute()
+        # Fetch existing QR tokens by session
+        url = f"{supabase_url}/rest/v1/qr_tokens"
+        params = {'select': 'token,expires_at', 'session': f'eq.{session_str}'}
+        existing = requests.get(url, headers=supabase.headers, params=params).json()
         for rec in existing:
             try:
                 exp = datetime.fromisoformat(rec['expires_at'].replace('Z', '+00:00'))
@@ -606,11 +607,9 @@ def generate_qr():
             except:
                 continue
         # Check for existing active QR for this session
-        existing = supabase.table('qr_tokens')\
-            .select('*')\
-            .eq('session', session_str)\
-            .gte('expires_at', now.isoformat())\
-            .execute()
+        # Fetch active QR tokens
+        params2 = {'select': '*', 'session': f'eq.{session_str}', 'expires_at': f'gte.{now.isoformat()}'}
+        existing = requests.get(url, headers=supabase.headers, params=params2).json()
         if existing and existing[0]:
             # Reuse existing token
             existing_rec = existing[0]
@@ -639,16 +638,27 @@ def generate_qr():
             buf = io.BytesIO()
             qr.save(buf, kind='png', scale=6, border=4)
             qr_b64 = base64.b64encode(buf.getvalue()).decode()
-            # Insert
+            # Insert token via Supabase REST
             rec = {
                 'token': token,
                 'session': session_str,
                 'created_at': now.isoformat(),
                 'expires_at': expires.isoformat()
             }
-            res = supabase.table('qr_tokens').insert(rec).execute()
-            if not res:
-                return jsonify({'error': 'Failed to create session'}), 500
+            try:
+                # Direct insert via POST to Supabase REST API
+                insert_url = f"{supabase_url}/rest/v1/qr_tokens"
+                insert_headers = {
+                    'apikey': supabase_key,
+                    'Authorization': f'Bearer {supabase_key}',
+                    'Content-Type': 'application/json',
+                    'Prefer': 'return=representation'
+                }
+                create_resp = requests.post(insert_url, headers=insert_headers, json=rec)
+                create_resp.raise_for_status()
+            except Exception as e:
+                print(f"QR token creation error: {e}")
+                return jsonify({'success': False, 'error': f"Failed to create QR token: {str(e)}"}), 500
             return jsonify({'success': True,
                             'qr': qr_b64,
                             'token': token,
@@ -660,7 +670,7 @@ def generate_qr():
                             'expires_at': expires.isoformat()})
     except Exception as e:
         print("QR generation error:", e)
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/admin/get-sessions', methods=['GET'])
 @login_required
