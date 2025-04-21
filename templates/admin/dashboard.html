@@ -366,17 +366,17 @@
             </div>
         </div>
 
-        <!-- Sessions Table -->
-        <div class="card mb-4">
+        <!-- Active Sessions Table -->
+        <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center">
-                <h5 class="card-title mb-0">Active Sessions</h5>
-                <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#createSessionModal">
-                    <i class="fas fa-qrcode me-2"></i> Generate QR
+                <h5 class="mb-0">Active Sessions</h5>
+                <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createSessionModal">
+                    <i class="fas fa-plus"></i> Create Session
                 </button>
             </div>
             <div class="card-body">
                 <div class="table-responsive">
-                    <table id="sessionsTable" class="table table-hover">
+                    <table class="table table-hover">
                         <thead>
                             <tr>
                                 <th>Session</th>
@@ -388,37 +388,7 @@
                             </tr>
                         </thead>
                         <tbody id="sessionsTableBody">
-                            {% for session in sessions %}
-                            <tr>
-                                <td>{{ session.subject }}</td>
-                                <td>{{ session.faculty }}</td>
-                                <td>{{ session.branch }}</td>
-                                <td>{{ session.semester }}</td>
-                                <td>
-                                    <span class="badge bg-{{ 'success' if session.is_active else 'danger' }}">
-                                        {{ 'Active' if session.is_active else 'Inactive' }}
-                                    </span>
-                                </td>
-                                <td>
-                                    <div class="btn-group">
-                                        <button type="button" class="btn btn-sm btn-info" onclick="viewQR('{{ session.token }}')" title="View QR">
-                                            <i class="fas fa-qrcode"></i>
-                                        </button>
-                                        <button type="button" class="btn btn-sm btn-{{ 'warning' if session.is_active else 'success' }}" 
-                                                onclick="toggleSession('{{ session.token }}', this)" 
-                                                title="{{ 'Deactivate' if session.is_active else 'Activate' }}">
-                                            <i class="fas fa-{{ 'pause' if session.is_active else 'play' }}"></i>
-                                        </button>
-                                        <button type="button" class="btn btn-sm btn-primary" onclick="viewHistory('{{ session.token }}')" title="History">
-                                            <i class="fas fa-history"></i>
-                                        </button>
-                                        <button type="button" class="btn btn-sm btn-danger" onclick="deleteSession('{{ session.token }}', this)" title="Delete">
-                                            <i class="fas fa-trash"></i>
-                                        </button>
-                                    </div>
-                                </td>
-                            </tr>
-                            {% endfor %}
+                            <!-- Sessions will be loaded here -->
                         </tbody>
                     </table>
                 </div>
@@ -426,39 +396,39 @@
         </div>
 
         <!-- Create Session Modal -->
-        <div class="modal fade" id="createSessionModal" tabindex="-1" aria-hidden="true">
-          <div class="modal-dialog">
-            <div class="modal-content">
-              <div class="modal-header">
-                <h5 class="modal-title">New Session</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-              </div>
-              <div class="modal-body">
-                <form id="createSessionForm">
-                  <div class="mb-3">
-                    <label class="form-label">Session Name</label>
-                    <input type="text" class="form-control" name="session" required />
-                  </div>
-                  <div class="mb-3">
-                    <label class="form-label">Faculty</label>
-                    <input type="text" class="form-control" name="faculty" required />
-                  </div>
-                  <div class="mb-3">
-                    <label class="form-label">Branch</label>
-                    <input type="text" class="form-control" name="branch" required />
-                  </div>
-                  <div class="mb-3">
-                    <label class="form-label">Semester</label>
-                    <input type="text" class="form-control" name="semester" required />
-                  </div>
-                </form>
-              </div>
-              <div class="modal-footer">
-                <button type="button" class="btn btn-primary" id="createSessionBtn">Generate QR</button>
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-              </div>
+        <div class="modal fade" id="createSessionModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">New Session</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="createSessionForm">
+                            <div class="mb-3">
+                                <label for="session" class="form-label">Session Name</label>
+                                <input type="text" class="form-control" id="session" name="session" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="faculty" class="form-label">Faculty</label>
+                                <input type="text" class="form-control" id="faculty" name="faculty" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="branch" class="form-label">Branch</label>
+                                <input type="text" class="form-control" id="branch" name="branch" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="semester" class="form-label">Semester</label>
+                                <input type="text" class="form-control" id="semester" name="semester" required>
+                            </div>
+                            <div class="text-end">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                <button type="submit" class="btn btn-primary">Generate QR</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
             </div>
-          </div>
         </div>
 
         <!-- View QR Modal -->
@@ -515,157 +485,187 @@
         <!-- SweetAlert2 -->
         <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
         <script>
-            async function toggleSession(token, btn) {
-                try {
-                    const response = await fetch(`/admin/toggle-session/${token}`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-Requested-With': 'XMLHttpRequest'
-                        }
-                    });
-                    const data = await response.json();
-                    if (data.success) {
-                        // Update UI without refresh
-                        const row = btn.closest('tr');
-                        const badge = row.querySelector('td:nth-child(5) .badge');
-                        const isActive = badge.textContent.trim() === 'Active';
-                        
-                        // Update badge with animation
-                        badge.classList.toggle('bg-success', !isActive);
-                        badge.classList.toggle('bg-danger', isActive);
-                        badge.textContent = isActive ? 'Inactive' : 'Active';
-                        badge.classList.add('animate__animated', 'animate__flash');
-                        
-                        // Update button
-                        btn.classList.toggle('btn-warning', !isActive);
-                        btn.classList.toggle('btn-success', isActive);
-                        const icon = btn.querySelector('i');
-                        icon.classList.toggle('fa-pause', !isActive);
-                        icon.classList.toggle('fa-play', isActive);
-                        
-                        // Update risk alerts
-                        updateRiskAlerts();
-                        // Live update
-                        updateAiInsights();
-                        
-                        // Remove animation class
-                        setTimeout(() => badge.classList.remove('animate__animated', 'animate__flash'), 1000);
-                    } else {
-                        Swal.fire('Error', data.error || 'Failed to toggle session', 'error');
-                    }
-                } catch (error) {
-                    console.error('Toggle error:', error);
-                    Swal.fire('Error', 'Failed to toggle session status', 'error');
-                }
+            async function updateSessions() {
+    console.log('Updating sessions...');
+    fetch('/admin/get-active-sessions')
+        .then(res => res.json())
+        .then(sessions => {
+            console.log('Received sessions:', sessions);
+            const tbody = document.getElementById('sessionsTableBody');
+            tbody.innerHTML = '';
+            
+            if (!sessions || !Array.isArray(sessions) || sessions.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center">No active sessions</td></tr>';
+                return;
+            }
+            
+            sessions.forEach(session => {
+                const parts = session.session.split(' - ');
+                const tr = document.createElement('tr');
+                tr.setAttribute('data-token', session.token);
+                tr.innerHTML = `
+                    <td>${parts[0] || ''}</td>
+                    <td>${parts[1] || ''}</td>
+                    <td>${parts[2] || ''}</td>
+                    <td>${parts[3] || ''}</td>
+                    <td><span class="badge bg-success">Active</span></td>
+                    <td>
+                        <div class="btn-group">
+                            <button type="button" class="btn btn-sm btn-info" onclick="event.stopPropagation(); viewQR('${session.token}')"><i class="fas fa-qrcode"></i></button>
+                            <button type="button" class="btn btn-sm btn-warning" onclick="event.stopPropagation(); toggleSession('${session.token}')"><i class="fas fa-pause"></i></button>
+                            <button type="button" class="btn btn-sm btn-primary" onclick="event.stopPropagation(); viewHistory('${session.token}')"><i class="fas fa-history"></i></button>
+                            <button type="button" class="btn btn-sm btn-danger" onclick="event.stopPropagation(); deleteSession('${session.token}')"><i class="fas fa-trash"></i></button>
+                        </div>
+                    </td>`;
+                tbody.appendChild(tr);
+            });
+        })
+        .catch(err => {
+            console.error('Error updating sessions:', err);
+            const tbody = document.getElementById('sessionsTableBody');
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger">Error loading sessions</td></tr>';
+        });
+}
+
+            // Append a new session row to the active sessions table
+            function addSessionRow(session) {
+                const parts = session.session.split(' - ');
+                const tbody = document.getElementById('sessionsTableBody');
+                const tr = document.createElement('tr');
+                tr.setAttribute('data-token', session.token);
+                tr.innerHTML = `
+                    <td>${parts[0] || ''}</td>
+                    <td>${parts[1] || ''}</td>
+                    <td>${parts[2] || ''}</td>
+                    <td>${parts[3] || ''}</td>
+                    <td><span class="badge bg-success">Active</span></td>
+                    <td>
+                        <div class="btn-group">
+                            <button type="button" class="btn btn-sm btn-info" onclick="event.stopPropagation(); viewQR('${session.token}')"><i class="fas fa-qrcode"></i></button>
+                            <button type="button" class="btn btn-sm btn-warning" onclick="event.stopPropagation(); toggleSession('${session.token}')"><i class="fas fa-pause"></i></button>
+                            <button type="button" class="btn btn-sm btn-primary" onclick="event.stopPropagation(); viewHistory('${session.token}')"><i class="fas fa-history"></i></button>
+                            <button type="button" class="btn btn-sm btn-danger" onclick="event.stopPropagation(); deleteSession('${session.token}')"><i class="fas fa-trash"></i></button>
+                        </div>
+                    </td>`;
+                tbody.prepend(tr);
             }
 
-            async function deleteSession(token, btn) {
-                const result = await Swal.fire({
+            document.getElementById('createSessionForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    try {
+        const form = new FormData(this);
+        const formData = {
+            session: form.get('session'),
+            faculty: form.get('faculty'),
+            branch: form.get('branch'),
+            semester: form.get('semester')
+        };
+        
+        console.log('Creating session:', formData);
+        
+        const response = await fetch('/admin/generate-qr', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify(formData)
+        });
+        
+        const data = await response.json();
+        console.log('Generate QR response:', data);
+        
+        if (data.success) {
+            // Close create modal
+            bootstrap.Modal.getInstance(document.getElementById('createSessionModal')).hide();
+            
+            // Show QR code
+            document.getElementById('viewQRImage').src = `data:image/png;base64,${data.qr}`;
+            document.getElementById('downloadBtn').href = `data:image/png;base64,${data.qr}`;
+            document.getElementById('downloadBtn').download = `qr_${data.token}.png`;
+            new bootstrap.Modal(document.getElementById('viewQRModal')).show();
+            
+            // Reset form and append new session row
+            this.reset();
+            addSessionRow(data);
+            
+            Swal.fire('Success', 'Session created successfully', 'success');
+        } else {
+            throw new Error(data.error || 'Failed to create session');
+        }
+    } catch (error) {
+        console.error('Create session error:', error);
+        Swal.fire('Error', error.message || 'Failed to create session', 'error');
+    }
+});
+
+            async function toggleSession(token) {
+    try {
+        console.log('Toggling session:', token);
+        const response = await fetch(`/admin/toggle-session/${token}`, {
+            method: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Content-Type': 'application/json'
+            }
+        });
+        const data = await response.json();
+        console.log('Toggle response:', data);
+        if (data.success) {
+            // Toggle badge and icon inline
+            const row = document.querySelector(`tr[data-token="${token}"]`);
+            const badge = row.querySelector('span.badge');
+            const icon = row.querySelector('button[type="button"][onclick*="toggleSession"]');
+            if (badge.textContent.trim() === 'Active') {
+                badge.textContent = 'Paused'; badge.classList.replace('bg-success','bg-secondary');
+                icon.innerHTML = '<i class="fas fa-play"></i>';
+            } else {
+                badge.textContent = 'Active'; badge.classList.replace('bg-secondary','bg-success');
+                icon.innerHTML = '<i class="fas fa-pause"></i>';
+            }
+            Swal.fire('Success','Session status updated','success');
+        } else if (data.error && data.error.includes('not found')) {
+            // Session missing, remove row
+            Swal.fire('Info','Session not found','info');
+        } else {
+            throw new Error(data.error || 'Toggle failed');
+        }
+    } catch (error) {
+        console.error('Toggle error:', error);
+        Swal.fire('Error',error.message || 'Failed to toggle','error');
+    }
+}
+
+            async function deleteSession(token) {
+                Swal.fire({
                     title: 'Are you sure?',
-                    text: "You won't be able to revert this!",
+                    text: "This action cannot be undone!",
                     icon: 'warning',
                     showCancelButton: true,
                     confirmButtonColor: '#d33',
                     cancelButtonColor: '#3085d6',
                     confirmButtonText: 'Yes, delete it!'
-                });
-
-                if (result.isConfirmed) {
-                    try {
-                        const response = await fetch(`/admin/delete-session/${token}`, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'X-Requested-With': 'XMLHttpRequest'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        fetch(`/admin/delete-session/${token}`, { method: 'POST' })
+                        .then(res => res.json())
+                        .then(async data => {
+                            if (data.success) {
+                                Swal.fire('Deleted!','Session deleted','success');
+                                // Remove row
+                                const row = document.querySelector(`tr[data-token="${token}"]`); row.remove();
+                            } else if (data.error && data.error.includes('not found')) {
+                                Swal.fire('Info','Session not found','info');
+                            } else {
+                                Swal.fire('Error',data.error || 'Failed to delete','error');
                             }
+                        }).catch(error => {
+                            console.error('Error:',error);
+                            Swal.fire('Error','Failed to delete','error');
                         });
-                        const data = await response.json();
-                        if (data.success) {
-                            // Remove row with animation
-                            const row = btn.closest('tr');
-                            row.classList.add('animate__animated', 'animate__fadeOut');
-                            row.addEventListener('animationend', () => {
-                                row.remove();
-                                // Update risk alerts after removing session
-                                updateRiskAlerts();
-                            }, { once: true });
-                        } else {
-                            Swal.fire('Error', data.error || 'Failed to delete session', 'error');
-                        }
-                    } catch (error) {
-                        console.error('Delete error:', error);
-                        Swal.fire('Error', 'Failed to delete session', 'error');
                     }
-                }
-            }
-
-            // Function to update risk alerts dynamically
-            async function updateRiskAlerts() {
-                try {
-                    const res = await fetch('/admin/get-risk-alerts', {headers: {'X-Requested-With': 'XMLHttpRequest'}});
-                    const data = await res.json();
-                    const container = document.getElementById('riskAlerts');
-                    if(data.success) {
-                        if(data.risk_alerts.length) {
-                            let html = '<ul class="list-unstyled mb-0">';
-                            data.risk_alerts.forEach(ra => {
-                                html += `<li class="mb-2"><i class="fas fa-circle text-warning me-2"></i><strong>${ra.subject}</strong> - ${ra.faculty}<span class="badge bg-warning text-dark ms-2">No Attendance</span></li>`;
-                            });
-                            html += '</ul>';
-                            container.innerHTML = html;
-                        } else {
-                            container.innerHTML = '<p class="text-muted mb-0"><i class="fas fa-check-circle text-success me-2"></i>All active sessions have attendance</p>';
-                        }
-                    }
-                } catch(e) { console.error(e); }
-            }
-            // Fetch and render AI insights
-            async function updateAiInsights() {
-                try {
-                    const res = await fetch('/admin/get-ai-insights', {headers: {'X-Requested-With': 'XMLHttpRequest'}});
-                    const data = await res.json();
-                    const container = document.getElementById('aiInsights');
-                    if(data.success) {
-                        if(data.ai_insights.length) {
-                            let html = '<ul class="list-unstyled mb-0">';
-                            data.ai_insights.forEach(ins => {
-                                html += `<li class="mb-2"><i class="fas fa-lightbulb text-info me-2"></i>${ins}</li>`;
-                            });
-                            html += '</ul>';
-                            container.innerHTML = html;
-                        } else {
-                            container.innerHTML = '<p class="text-muted mb-0"><i class="fas fa-info-circle me-2"></i>No insights available</p>';
-                        }
-                    }
-                } catch(e) { console.error(e); }
-            }
-            // Fetch and render Sessions table
-            async function updateSessions() {
-                try {
-                    const res = await fetch('/admin/get-sessions', {headers:{'X-Requested-With':'XMLHttpRequest'}});
-                    const data = await res.json();
-                    if(data.success) {
-                        const tbody = document.getElementById('sessionsTableBody');
-                        let html = '';
-                        data.sessions.forEach(s => {
-                            html += `<tr>
-                                <td>${s.subject}</td>
-                                <td>${s.faculty}</td>
-                                <td>${s.branch}</td>
-                                <td>${s.semester}</td>
-                                <td><span class="badge bg-${s.is_active?'success':'danger'}">${s.is_active?'Active':'Inactive'}</span></td>
-                                <td><div class="btn-group">
-                                    <button class="btn btn-sm btn-info" onclick="viewQR('${s.token}')"><i class="fas fa-qrcode"></i></button>
-                                    <button class="btn btn-sm btn-${s.is_active?'warning':'success'}" onclick="toggleSession('${s.token}', this)"><i class="fas fa-${s.is_active?'pause':'play'}"></i></button>
-                                    <button class="btn btn-sm btn-primary" onclick="viewHistory('${s.token}')"><i class="fas fa-history"></i></button>
-                                    <button class="btn btn-sm btn-danger" onclick="deleteSession('${s.token}', this)"><i class="fas fa-trash"></i></button>
-                                </div></td>
-                            </tr>`;
-                        });
-                        tbody.innerHTML = html;
-                    }
-                } catch(err) { console.error('Sessions update error:', err); }
+                });
             }
 
             async function viewQR(token) {
@@ -724,55 +724,10 @@
         </script>
 
         <script>
-          // Create session and QR
-          document.getElementById('createSessionBtn').addEventListener('click', async (e) => {
-            e.preventDefault();
-            const form = document.getElementById('createSessionForm');
-            const data = {
-              session: form.session.value,
-              faculty: form.faculty.value,
-              branch: form.branch.value,
-              semester: form.semester.value
-            };
-            try {
-              const res = await fetch('/admin/generate-qr', {
-                method: 'POST',
-                headers: {'Content-Type':'application/json','X-Requested-With':'XMLHttpRequest'},
-                body: JSON.stringify(data)
-              });
-              const json = await res.json();
-              if (json.success) {
-                // Show QR
-                const img = document.getElementById('viewQRImage');
-                img.src = `data:image/png;base64,${json.qr}`;
-                // Download link
-                const dl = document.getElementById('downloadBtn');
-                dl.href = img.src;
-                dl.download = `qr_${json.token}.png`;
-                // Hide creation modal, show QR modal
-                bootstrap.Modal.getInstance(document.getElementById('createSessionModal')).hide();
-                new bootstrap.Modal(document.getElementById('viewQRModal')).show();
-                // Refresh sessions table live
-                updateSessions(); updateRiskAlerts(); updateAiInsights();
-              } else {
-                Swal.fire('Error', json.error||'Failed to generate QR','error');
-              }
-            } catch (e) {
-              Swal.fire('Error', 'Unable to generate QR','error');
-            }
-          });
           // Reload dashboard when QR modal closes to show new session
           document.getElementById('viewQRModal').addEventListener('hidden.bs.modal', () => {
-            updateRiskAlerts(); updateAiInsights();
+            updateSessions();
           });
-        </script>
-
-        <script>
-            // Live update on load
-            document.addEventListener('DOMContentLoaded', () => {
-                updateRiskAlerts();
-                updateAiInsights();
-            });
         </script>
     </div>
 </div>

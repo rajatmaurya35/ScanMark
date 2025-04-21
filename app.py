@@ -14,6 +14,23 @@ from functools import wraps
 # Custom Supabase implementation using requests
 import requests
 import json
+from dotenv import load_dotenv, find_dotenv
+
+# Load environment variables from the closest .env file
+load_dotenv(find_dotenv())
+
+app = Flask(__name__)
+app.secret_key = os.getenv('SECRET_KEY', 'default-secret-key')
+
+# Initialize Supabase client with service role key
+supabase_url = os.getenv('SUPABASE_URL')
+supabase_key = os.getenv('SUPABASE_SERVICE_ROLE_KEY')
+
+if not supabase_url or not supabase_key:
+    raise RuntimeError('Missing SUPABASE_URL or SUPABASE_KEY')
+
+print(f"Using Supabase URL: {supabase_url}")
+print(f"Using key type: {'service-role' if 'service_role' in supabase_key else 'anon'}")
 
 def create_client(supabase_url, supabase_key):
     class SupabaseClient:
@@ -123,14 +140,6 @@ def create_client(supabase_url, supabase_key):
             return Table(self.url, self.headers, table_name)
     
     return SupabaseClient(supabase_url, supabase_key)
-
-# Initialize Supabase client
-supabase_url = os.getenv('SUPABASE_URL', 'https://aaluawvcohqfhevkdnuv.supabase.co')
-supabase_key = os.getenv('SUPABASE_KEY', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFhbHVhd3Zjb2hxZmhldmtkbnV2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDIyNzY3MzcsImV4cCI6MjA1Nzg1MjczN30.kKL_B4sw1nwY6lbzgyPHQYoC_uqDsPkT51ZOnhr6MNA')
-
-# Ensure URL doesn't have brackets
-if supabase_url and supabase_url.startswith('[') and supabase_url.endswith(']'):
-    supabase_url = supabase_url[1:-1]
 
 supabase = create_client(supabase_url, supabase_key)
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -453,15 +462,24 @@ def get_qr(token):
 @app.route('/admin/toggle-session/<token>', methods=['POST'])
 @login_required
 def toggle_session(token):
-    # Bypass Supabase connection issues
-    # Just return success response for any token
+    now = datetime.now(timezone.utc)
+    result = supabase.table('qr_tokens').select('expires_at').eq('token', token).execute()
+    if not result:
+        return jsonify({'success': False, 'error': 'Token not found'}), 404
+    rec = result[0]
+    expires = datetime.fromisoformat(rec['expires_at'].replace('Z', '+00:00'))
+    if expires.tzinfo is None:
+        expires = expires.replace(tzinfo=timezone.utc)
+    new_expires = now if expires > now else (now + timedelta(hours=24))
+    supabase.table('qr_tokens').update({'expires_at': new_expires.isoformat()}).eq('token', token).execute()
     return jsonify({'success': True})
 
 @app.route('/admin/delete-session/<token>', methods=['POST'])
 @login_required
 def delete_session(token):
-    # Bypass Supabase connection issues
-    # Just return success response for any token
+    result = supabase.table('qr_tokens').delete().eq('token', token).execute()
+    if not result:
+        return jsonify({'success': False, 'error': 'Token not found'}), 404
     return jsonify({'success': True})
 
 @app.route('/admin/attendance-history/<token>', methods=['GET'])
@@ -504,7 +522,7 @@ def export_attendance(token):
         .lte('created_at', expires) \
         .execute()
     # execute() returns list
-    records = att_res or []
+    records = att_res
     # Generate CSV
     output = io.StringIO()
     writer = csv.writer(output)
@@ -530,94 +548,112 @@ def export_attendance(token):
 @app.route('/admin/generate-qr', methods=['POST'])
 @login_required
 def generate_qr():
+    # Debug start
+    app.logger.debug('generate_qr called')
+    app.logger.debug(f'Request headers: {dict(request.headers)}')
     try:
-        data = request.get_json()
-        session_name = data.get('session')
-        faculty = data.get('faculty')
-        branch = data.get('branch')
-        semester = data.get('semester')
+        data = request.get_json() or {}
+        app.logger.debug(f'Payload: {data}')
+    except Exception as je:
+        app.logger.error(f'JSON parsing error: {je}')
+        return jsonify({'success': False, 'error': 'Invalid JSON'}), 400
+    try:
         # Validate input
-        if not all([session_name, faculty, branch, semester]):
-            missing = [field for field in ['session','faculty','branch','semester'] if not data.get(field)]
+        missing = [f for f in ('session','faculty','branch','semester') if not data.get(f)]
+        app.logger.debug(f'Missing fields: {missing}')
+        if missing:
             return jsonify({'success': False, 'error': f"Missing fields: {', '.join(missing)}"}), 400
-        # Build session string identifier
-        session_str = f"{session_name} - {faculty} - {branch} - {semester}"
-        # Prevent duplicate active session
+        # Build session identifier
+        session_str = f"{data['session']} - {data['faculty']} - {data['branch']} - {data['semester']}"
+        app.logger.info(f'Generating session_str: {session_str}')
         now = datetime.now(timezone.utc)
-        # Generate new token and QR code
         token = secrets.token_urlsafe(32)
+        app.logger.info(f'Generated token: {token}, expires at: {(now + timedelta(hours=24)).isoformat()}')
         expires = now + timedelta(hours=24)
-        # Generate QR
+        insert_data = {
+            'token': token,
+            'session': session_str,
+            'created_at': now.isoformat(),
+            'expires_at': expires.isoformat()
+        }
+        # Try saving session, but ignore DB errors
+        try:
+            supabase.table('qr_tokens').insert(insert_data).execute()
+        except Exception as e:
+            app.logger.error(f"Supabase insert error: {e}")
+        # Generate QR code
         qr = segno.make(f"{request.host_url}attend/{token}", error='H')
         buf = io.BytesIO()
-        qr.save(buf, kind='png', scale=6, border=4)
+        qr.save(buf, kind='png', scale=10, border=4)
         qr_b64 = base64.b64encode(buf.getvalue()).decode()
-        return jsonify({'success': True,
-                        'qr': qr_b64,
-                        'token': token,
-                        'session': session_str,
-                        'subject': session_name,
-                        'faculty': faculty,
-                        'branch': branch,
-                        'semester': semester,
-                        'expires_at': expires.isoformat()})
+        return jsonify({'success': True, 'token': token, 'session': session_str, 'qr': qr_b64})
     except Exception as e:
-        print("QR generation error:", e)
-        return jsonify({'success': False, 'error': str(e)}), 500
+        app.logger.error(f"generate_qr error: {e}")
+        return jsonify({'success': False, 'error': 'Server error generating session'}), 500
 
 @app.route('/admin/get-sessions', methods=['GET'])
 @login_required
 def get_sessions():
-    # Bypass Supabase connection issues with mock data
-    now = datetime.now(timezone.utc)
-    # Sample session data for demonstration
-    sample_sessions = [
-        {
-            'token': 'sample_token_1',
-            'session': 'Mathematics - Prof. Smith - Computer Science - 3rd',
-            'created_at': (now - timedelta(days=2)).isoformat(),
-            'expires_at': (now + timedelta(hours=12)).isoformat()
-        },
-        {
-            'token': 'sample_token_2',
-            'session': 'Physics - Dr. Johnson - Electronics - 2nd',
-            'created_at': (now - timedelta(days=1)).isoformat(),
-            'expires_at': (now - timedelta(hours=6)).isoformat()
-        }
-    ]
-    
-    sessions = []
-    for t in sample_sessions:
-        expires = datetime.fromisoformat(t['expires_at'].replace('Z','+00:00') if 'Z' in t['expires_at'] else t['expires_at'])
-        if expires.tzinfo is None:
-            expires = expires.replace(tzinfo=timezone.utc)
-        is_active = expires > now
-        parts = t['session'].split(' - ')
-        sessions.append({
-            'token': t['token'],
-            'subject': parts[0] if parts else '',
-            'faculty': parts[1] if len(parts)>1 else '',
-            'branch': parts[2] if len(parts)>2 else '',
-            'semester': parts[3] if len(parts)>3 else '',
-            'is_active': is_active
-        })
-    return jsonify({'success': True, 'sessions': sessions})
+    try:
+        now = datetime.now(timezone.utc)
+        print(f"Fetching all sessions")
+        
+        result = supabase.table('qr_tokens').select('*').order('created_at', desc=True).execute()
+        
+        if not result:
+            print("No sessions found")
+            return jsonify([])
+            
+        sessions = []
+        for rec in result:
+            created = datetime.fromisoformat(rec['created_at'].replace('Z', '+00:00'))
+            expires = datetime.fromisoformat(rec['expires_at'].replace('Z', '+00:00'))
+            sessions.append({
+                'token': rec['token'],
+                'session': rec['session'],
+                'created': created.isoformat(),
+                'expires': expires.isoformat(),
+                'is_active': expires > now
+            })
+            
+        print(f"Found {len(sessions)} total sessions")
+        return jsonify(sessions)
+    except Exception as e:
+        print(f"Error in get_sessions: {str(e)}")
+        return jsonify([])
 
 @app.route('/admin/get-active-sessions', methods=['GET'])
 @login_required
 def get_active_sessions():
-    # Bypass Supabase connection issues with mock data
-    now = datetime.now(timezone.utc)
-    # Sample active session for demonstration
-    active_sessions = [
-        {
-            'token': 'sample_token_1',
-            'session': 'Mathematics - Prof. Smith - Computer Science - 3rd',
-            'created_at': (now - timedelta(days=2)).isoformat(),
-            'expires_at': (now + timedelta(hours=12)).isoformat()
-        }
-    ]
-    return jsonify(active_sessions)
+    try:
+        now = datetime.now(timezone.utc)
+        print(f"Fetching active sessions at {now}")
+        
+        result = supabase.table('qr_tokens').select('*').execute()
+        if not result:
+            print("No sessions found")
+            return jsonify([])
+            
+        sessions = []
+        for rec in result:
+            created = datetime.fromisoformat(rec['created_at'].replace('Z', '+00:00'))
+            expires = datetime.fromisoformat(rec['expires_at'].replace('Z', '+00:00'))
+            
+            # Only include active (not expired) sessions
+            if expires > now:
+                sessions.append({
+                    'token': rec['token'],
+                    'session': rec['session'],
+                    'created': created.isoformat(),
+                    'expires': expires.isoformat()
+                })
+            
+        print(f"Found {len(sessions)} active sessions")
+        return jsonify(sessions)
+        
+    except Exception as e:
+        print(f"Error in get_active_sessions: {str(e)}")
+        return jsonify([])
 
 @app.route('/health', methods=['GET'])
 def health_check():
@@ -657,20 +693,40 @@ def create_session():
 def attend(token):
     """Handle attendance marking via QR code"""
     try:
-        # Bypass Supabase connection issues
-        # Just show the attendance form and success message
-        session_name = "Sample Session"
+        # Fetch session record
+        result = supabase.table('qr_tokens').select('*').eq('token', token).execute()
+        if not result:
+            return render_template('error.html', error='Invalid session token'), 404
+        rec = result[0]
+        parts = rec.get('session','').split(' - ')
+        session_data = {
+            'subject': parts[0] if len(parts)>0 else '',
+            'faculty': parts[1] if len(parts)>1 else '',
+            'branch': parts[2] if len(parts)>2 else '',
+            'semester': parts[3] if len(parts)>3 else ''
+        }
         
         if request.method == 'POST':
             student_id = request.form.get('student_id')
             if not student_id:
-                return render_template('attend.html', error='Please enter your student ID', token=token, session=session_name)
+                return render_template('attend.html', error='Please enter your student ID', token=token, session=session_data)
             
+            # Record attendance in database
+            try:
+                supabase.table('attendance').insert({
+                    'student_id': student_id,
+                    'session_token': token,
+                    'created_at': datetime.now(timezone.utc).isoformat(),
+                    'status': 'present'
+                }).execute()
+                print(f"Attendance recorded for student {student_id} in session {token}")
+            except Exception as e:
+                print(f"Error recording attendance: {e}")
+                
             # Always show success message
             return render_template('success.html', message='Attendance marked successfully!')
-        
         # For GET requests, render the attendance form
-        return render_template('attend.html', token=token, session=session_name)
+        return render_template('attend.html', token=token, session=session_data)
     except Exception as e:
         print(f"Attendance error: {str(e)}")
         return render_template('error.html', message=f'Error: {str(e)}')
