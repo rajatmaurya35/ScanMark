@@ -49,10 +49,12 @@ def create_client(supabase_url, supabase_key):
                             params['on_conflict'] = 'id'
                         response = requests.post(url, headers=self.headers, params=params, json=data)
                         response.raise_for_status()
+                        # Return the raw response data, not wrapped in a data attribute
                         return response.json()
                     except Exception as e:
                         print(f"Supabase insert error: {str(e)}")
-                        return {}
+                        # Return empty list instead of empty dict for consistency
+                        return []
                 
                 def update(self, data):
                     try:
@@ -63,7 +65,7 @@ def create_client(supabase_url, supabase_key):
                         return response.json()
                     except Exception as e:
                         print(f"Supabase update error: {str(e)}")
-                        return {}
+                        return []
                 
                 def delete(self):
                     try:
@@ -74,7 +76,7 @@ def create_client(supabase_url, supabase_key):
                         return response.json()
                     except Exception as e:
                         print(f"Supabase delete error: {str(e)}")
-                        return {}
+                        return []
                 
                 def eq(self, column, value):
                     self.filter_column = column
@@ -86,6 +88,20 @@ def create_client(supabase_url, supabase_key):
                     self.order_clause = f"{column}.desc" if desc else f"{column}.asc"
                     return self
                 
+                def gte(self, column, value):
+                    # Greater than or equal filter
+                    if not hasattr(self, 'filters'):
+                        self.filters = {}
+                    self.filters[column] = f"gte.{value}"
+                    return self
+                
+                def lte(self, column, value):
+                    # Less than or equal filter
+                    if not hasattr(self, 'filters'):
+                        self.filters = {}
+                    self.filters[column] = f"lte.{value}"
+                    return self
+                
                 def execute(self):
                     try:
                         url = f"{self.base_url}/{self.table}"
@@ -94,6 +110,9 @@ def create_client(supabase_url, supabase_key):
                             params[self.filter_column] = f'eq.{self.filter_value}'
                         if hasattr(self, 'order_clause'):
                             params['order'] = self.order_clause
+                        if hasattr(self, 'filters'):
+                            # Add all filters directly to params
+                            params.update(self.filters)
                         response = requests.get(url, headers=self.headers, params=params)
                         response.raise_for_status()  # Raise exception for HTTP errors
                         return response.json()
@@ -162,11 +181,26 @@ def admin_register():
         
         try:
             app.logger.info("Attempting to create new user in database")
-            supabase.table('admins').insert({
+            # Direct HTTP request to create admin user
+            url = SUPABASE_URL
+            if url and url.startswith('[') and url.endswith(']'):
+                url = url[1:-1]
+            
+            admin_url = f"{url}/rest/v1/admins"
+            headers = {
+                'apikey': SUPABASE_KEY,
+                'Authorization': f'Bearer {SUPABASE_KEY}',
+                'Content-Type': 'application/json'
+            }
+            
+            admin_data = {
                 'username': username,
                 'password_hash': password_hash,
                 'created_at': datetime.now(timezone.utc).isoformat()
-            }).execute()
+            }
+            
+            response = requests.post(admin_url, headers=headers, json=admin_data)
+            response.raise_for_status()
             
             app.logger.info(f"Successfully registered user: {username}")
             
