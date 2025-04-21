@@ -81,12 +81,19 @@ def create_client(supabase_url, supabase_key):
                     self.filter_value = value
                     return self
                 
+                def order(self, column, desc=False):
+                    # Add ordering support for Supabase REST API
+                    self.order_clause = f"{column}.desc" if desc else f"{column}.asc"
+                    return self
+                
                 def execute(self):
                     try:
                         url = f"{self.base_url}/{self.table}"
                         params = {'select': self.select_columns}
                         if hasattr(self, 'filter_column') and hasattr(self, 'filter_value'):
                             params[self.filter_column] = f'eq.{self.filter_value}'
+                        if hasattr(self, 'order_clause'):
+                            params['order'] = self.order_clause
                         response = requests.get(url, headers=self.headers, params=params)
                         response.raise_for_status()  # Raise exception for HTTP errors
                         return response.json()
@@ -182,12 +189,14 @@ app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', secrets.token_hex(32))
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=24)
 app.config['SESSION_TYPE'] = 'filesystem'
 app.config['SESSION_FILE_DIR'] = os.path.join(app.root_path, 'flask_session')
-app.config['SESSION_COOKIE_SECURE'] = True
+## Local development cookie settings
+app.config['SESSION_COOKIE_SECURE'] = False  # allow HTTP
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'  # allow top-level POST navigations
 app.config['SESSION_COOKIE_HTTPONLY'] = True
-app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 
-# Enforce HTTPS and secure headers
-Talisman(app, content_security_policy=None)
+# Disable Talisman for local development
+if os.environ.get('FLASK_ENV') == 'production':
+    Talisman(app, content_security_policy=None)
 
 # Initialize Supabase client
 SUPABASE_URL = os.getenv('SUPABASE_URL', 'https://aaluawvcohqfhevkdnuv.supabase.co')
@@ -249,7 +258,7 @@ def test():
 @app.route('/admin/login/', methods=['GET', 'POST'])
 def admin_login():
     if 'admin' in session:
-        return redirect('/admin/dashboard')
+        return redirect(url_for('admin_dashboard'))
     if request.method == 'POST':
         is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
         username = request.form.get('username')
@@ -258,7 +267,7 @@ def admin_login():
             if is_ajax:
                 return jsonify({'success': False, 'error': 'Please enter both username and password'})
             flash('Please enter both username and password', 'danger')
-            return redirect('/admin/login')
+            return redirect(url_for('admin_login'))
         try:
             # Create a default admin user if none exists
             try:
@@ -297,7 +306,7 @@ def admin_login():
                 session['admin'] = username
                 if is_ajax:
                     return jsonify({'success': True, 'redirect': '/admin/dashboard'})
-                return redirect('/admin/dashboard')
+                return redirect(url_for('admin_dashboard'))
             
             # Try to get admin from database
             res = supabase.table('admins').select('*').eq('username', username).execute()
@@ -308,7 +317,7 @@ def admin_login():
                 session['admin'] = username
                 if is_ajax:
                     return jsonify({'success': True, 'redirect': '/admin/dashboard'})
-                return redirect('/admin/dashboard')
+                return redirect(url_for('admin_dashboard'))
             
             # Invalid credentials
             if is_ajax:
@@ -319,13 +328,13 @@ def admin_login():
             if is_ajax:
                 return jsonify({'success': False, 'error': 'An error occurred during login'})
             flash('An error occurred during login', 'danger')
-        return redirect('/admin/login')
+        return redirect(url_for('admin_login'))
     return render_template('admin/login.html')
 
 @app.route('/admin/logout')
 def admin_logout():
     session.pop('admin', None)
-    return redirect('/admin/login')
+    return redirect(url_for('admin_login'))
 
 @app.route('/admin/dashboard')
 @app.route('/admin/dashboard/')
