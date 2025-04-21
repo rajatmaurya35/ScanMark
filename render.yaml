@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: scanmark-advance
+    env: python
+    branch: full-project-2025
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn wsgi:app
+    envVars:
+      - key: FLASK_APP
+        value: wsgi.py
+      - key: FLASK_ENV
+        value: production
+      - fromFile: .env
