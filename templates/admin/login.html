@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - ScanMark</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" />
+    <style>
+        /* Overlay styles */
+        .greeting-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            z-index: 9999;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+        
+        .greeting-overlay.show {
+            opacity: 1;
+            visibility: visible;
+        }
+        
+        .greeting-text {
+            color: #fff;
+            font-size: 2.5rem;
+            text-align: center;
+            margin-bottom: 1rem;
+        }
+        
+        .namaste-gesture {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+        }
+        
+        .welcome-message {
+            color: #2ECC71;
+            font-size: 1.5rem;
+            text-align: center;
+        }
+        
+        @keyframes namastePulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+        
+        .pulse {
+            animation: namastePulse 2s infinite;
+        }
+        :root {
+            --primary-color: #2ecc71;
+            --secondary-color: #27ae60;
+        }
+        body {
+            background: linear-gradient(135deg, #2ECC71, #27AE60);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .login-container {
+            width: 100%;
+            max-width: 400px;
+            padding: 20px;
+        }
+
+        .card {
+            border: none;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            animation: fadeIn 0.5s ease-out;
+            background: rgba(255, 255, 255, 0.98);
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .card-body {
+            padding: 40px;
+        }
+
+        .logo {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .squares-logo {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 5px;
+            width: 60px;
+            margin: 0 auto 15px;
+        }
+
+        .square {
+            width: 25px;
+            height: 25px;
+            background: #2ECC71;
+            border-radius: 5px;
+            animation: pulse 2s infinite;
+        }
+
+        .square:nth-child(2) { animation-delay: 0.5s; }
+        .square:nth-child(3) { animation-delay: 1s; }
+        .square:nth-child(4) { animation-delay: 1.5s; }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(0.9); }
+            100% { transform: scale(1); }
+        }
+
+        .logo h3 {
+            color: #2ECC71;
+            margin: 0;
+            font-weight: 600;
+        }
+
+        .form-control {
+            border-radius: 8px;
+            padding: 12px;
+            border: 1px solid #e0e0e0;
+            transition: all 0.3s ease;
+        }
+
+        .form-control:focus {
+            border-color: #2ECC71;
+            box-shadow: 0 0 0 0.2rem rgba(46, 204, 113, 0.25);
+        }
+
+        .btn-login {
+            background: #2ECC71;
+            border: none;
+            padding: 12px;
+            border-radius: 8px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s ease;
+            color: white;
+        }
+
+        .btn-login:hover {
+            background: #27AE60;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(46, 204, 113, 0.3);
+        }
+
+        .alert {
+            border-radius: 8px;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .login-container {
+            width: 100%;
+            max-width: 400px;
+            padding: 20px;
+        }
+
+        .card {
+            border: none;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            animation: fadeIn 0.5s ease-out;
+            background: rgba(255, 255, 255, 0.98);
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .card-body {
+            padding: 40px;
+        }
+
+        .logo {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #2ECC71;
+        }
+
+        .logo i {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+
+        .form-control {
+            border-radius: 8px;
+            padding: 12px;
+            border: 1px solid #e0e0e0;
+            transition: all 0.3s ease;
+        }
+
+        .form-control:focus {
+            border-color: #2ECC71;
+            box-shadow: 0 0 0 0.2rem rgba(46, 204, 113, 0.25);
+        }
+
+        .input-group-text {
+            background: transparent;
+            border: 1px solid #e0e0e0;
+            border-right: none;
+            color: #666;
+        }
+
+        .btn-login {
+            background: #2ECC71;
+            border: none;
+            padding: 12px;
+            border-radius: 8px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s ease;
+        }
+
+        .btn-login:hover {
+            background: #27AE60;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(46, 204, 113, 0.3);
+        }
+
+        .alert {
+            border-radius: 8px;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .welcome-text {
+            text-align: center;
+            color: #666;
+            margin-top: 20px;
+            font-size: 14px;
+        }
+
+        /* Add keyframes for welcome animation */
+        @keyframes welcomeSlideIn {
+            0% {
+                opacity: 0;
+                transform: translateY(-100px) scale(0.8);
+            }
+            60% {
+                transform: translateY(20px) scale(1.1);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+        
+        /* Fade out for success transition */
+        @keyframes successFadeOut {
+            0% { opacity: 1; transform: scale(1); }
+            100% { opacity: 0; transform: scale(0.8); }
+        }
+
+        .welcome-animation {
+            animation: welcomeSlideIn 1.2s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        }
+
+        .success-animation {
+            animation: successFadeOut 0.8s ease-out forwards;
+        }
+    </style>
+</head>
+<body>
+    <!-- Greeting Overlay -->
+    <div class="greeting-overlay">
+        <div class="namaste-gesture animate__animated animate__zoomIn pulse">🙏</div>
+        <div class="greeting-text animate__animated animate__fadeInUp"></div>
+        <div class="welcome-message animate__animated animate__fadeInUp animate__delay-1s">Welcome to ScanMark</div>
+    </div>
+    <div class="login-container">
+        <div class="card animate__animated animate__zoomIn">
+            <div class="card-body">
+                <div class="logo">
+                    <div class="squares-logo">
+                        <div class="square"></div>
+                        <div class="square"></div>
+                        <div class="square"></div>
+                        <div class="square"></div>
+                    </div>
+                    <h3>ScanMark Admin</h3>
+                    <p class="text-muted">Sign in to continue</p>
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+                      {% if messages %}
+                        {% for category, message in messages %}
+                          <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                          </div>
+                        {% endfor %}
+                      {% endif %}
+                    {% endwith %}
+                </div>
+                <form id="loginForm" action="{{ url_for('admin_login') }}" method="POST">
+                    <div class="mb-4">
+                        <div class="input-group">
+                            <span class="input-group-text bg-white">
+                                <i class="fas fa-user text-muted"></i>
+                            </span>
+                            <input type="text" class="form-control" name="username" placeholder="Username" required>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <div class="input-group">
+                            <span class="input-group-text bg-white">
+                                <i class="fas fa-lock text-muted"></i>
+                            </span>
+                            <input type="password" class="form-control" name="password" placeholder="Password" required>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-login w-100" id="loginButton">
+                        <span class="normal-state"><i class="fas fa-sign-in-alt me-2"></i>Login</span>
+                        <span class="loading-state" style="display: none;">
+                            <span class="spinner-border spinner-border-sm me-2"></span>Logging in...
+                        </span>
+                    </button>
+                </form>
+                <div class="text-center mt-3">
+                    <a href="/signup/" class="btn btn-link">No account? Sign Up</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script>
+      // Show spinner then submit normally
+      const loginForm = document.getElementById('loginForm');
+      const loginButton = document.getElementById('loginButton');
+      
+      function showGreeting(username, isNewUser = false) {
+          const overlay = document.querySelector('.greeting-overlay');
+          const greetingText = overlay.querySelector('.greeting-text');
+          
+          // Set greeting text based on user type
+          greetingText.textContent = `Namaste, ${username}`;
+          
+          // Show overlay with animations
+          overlay.classList.add('show');
+          
+          // Hide overlay and submit form after animation
+          setTimeout(() => {
+              overlay.classList.remove('show');
+              setTimeout(() => loginForm.submit(), 500);
+          }, 2500);
+      }
+      
+      loginForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        const usernameVal = loginForm.querySelector('input[name="username"]').value;
+        
+        // Disable button and show loading state
+        loginButton.disabled = true;
+        loginButton.querySelector('.normal-state').style.display = 'none';
+        loginButton.querySelector('.loading-state').style.display = 'inline-block';
+        
+        // Fade out the card
+        const card = loginButton.closest('.card');
+        card.classList.add('animate__animated', 'animate__fadeOut');
+        
+        // Show greeting overlay
+        setTimeout(() => showGreeting(usernameVal), 500);
+      });
+    </script>
+</body>
+</html>
