@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ScanMark - Admin Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
+    <link href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/@mdi/font@6.5.95/css/materialdesignicons.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/animate.css@4.1.1/animate.min.css" />
+
+    <style>
+        :root {
+            --primary-color: #4CAF50;
+            --secondary-color: #2196F3;
+            --accent-color: #FF9800;
+            --background-color: #f8f9fa;
+        }
+
+        body {
+            background-color: var(--background-color);
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            min-height: 100vh;
+        }
+
+        .navbar {
+            background: linear-gradient(45deg, #2ECC71, #3498db);
+        }
+        .logo-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 3px;
+            width: 24px;
+            height: 24px;
+        }
+        .logo-square {
+            background-color: #fff;
+            border-radius: 3px;
+            width: 100%;
+            height: 100%;
+        }
+        .navbar-brand {
+            font-size: 1.5rem;
+            font-weight: 500;
+        }
+
+        .card {
+            border: none;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-bottom: 1rem;
+            animation: fadeInUp 0.6s ease-out;
+            transition: all 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .stat-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            animation: countUp 1s ease-out;
+        }
+
+        @keyframes countUp {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .chart-container {
+            animation: fadeIn 1s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .card-header {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            border-radius: 10px 10px 0 0;
+            padding: 1rem;
+        }
+
+        .btn {
+            border-radius: 5px;
+            padding: 0.5rem 1rem;
+            font-weight: 500;
+        }
+
+        .btn-primary {
+            background: var(--primary-color);
+            border: none;
+        }
+
+        .btn-info {
+            background: var(--secondary-color);
+            border: none;
+            color: white;
+        }
+
+        .btn-warning {
+            background: var(--accent-color);
+            border: none;
+            color: white;
+        }
+
+        .form-control {
+            border-radius: 5px;
+            padding: 0.5rem;
+            border: 1px solid #ddd;
+        }
+
+        .form-control:focus {
+            border-color: var(--primary-color);
+            box-shadow: none;
+        }
+
+        .table {
+            margin-bottom: 0;
+        }
+
+        .table th {
+            border-top: none;
+            font-weight: 600;
+        }
+
+        .badge {
+            padding: 0.5rem 0.75rem;
+            border-radius: 5px;
+        }
+
+        .badge.bg-success {
+            background-color: var(--primary-color) !important;
+        }
+
+        /* Fetched QR image (static) */
+        #qrDisplayContainer img {
+            width: 300px;
+            height: 300px;
+            border: 8px solid #004aad;
+            border-radius: 12px;
+            display: block;
+            margin: 1rem auto;
+        }
+
+        #viewQRImage {
+          display: block;
+          margin: 0 auto;
+        }
+        #viewQRImage.flip {
+          animation: flipAnim 1s ease-out;
+        }
+        @keyframes flipAnim {
+          from { transform: perspective(400px) rotateY(0); }
+          to   { transform: perspective(400px) rotateY(360deg); }
+        }
+
+        .card {
+            transition: all 0.3s ease;
+            animation: fadeIn 0.5s ease-out;
+        }
+        
+        .alert-info {
+            background-color: #e3f2fd;
+            border-color: #90caf9;
+            color: #1976d2;
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        .alert-warning {
+            background-color: #fff3e0;
+            border-color: #ffe0b2;
+            color: #f57c00;
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .stats-card {
+            border-radius: 15px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease;
+        }
+        
+        .stats-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .active-badge {
+            background-color: #2ECC71;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#">
+                <div class="d-flex align-items-center">
+                    <div class="logo-grid me-2">
+                        <div class="logo-square"></div>
+                        <div class="logo-square"></div>
+                        <div class="logo-square"></div>
+                        <div class="logo-square"></div>
+                    </div>
+                    <span>ScanMark Admin</span>
+                </div>
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('admin_dashboard') }}">
+                            <i class="fas fa-home"></i> Dashboard
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('admin_logout') }}">
+                            <i class="fas fa-sign-out-alt"></i> Logout
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid px-4 py-5">
+        <!-- Stats Row -->
+        <div class="row g-3 mb-4">
+            <div class="col-md-4">
+                <div class="card bg-primary text-white h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-uppercase mb-2">Total Sessions</h6>
+                                <div class="stat-value" id="totalSessionsStat">{{ stats.total_sessions }}</div>
+                            </div>
+                            <i class="fas fa-chalkboard-teacher fa-2x opacity-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card bg-info text-white h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-uppercase mb-2">Total Attendance</h6>
+                                <div id="totalAttendanceStat" class="stat-value">{{ stats.total_attendance }}</div>
+                            </div>
+                            <i class="fas fa-users fa-2x opacity-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card bg-success text-white h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-uppercase mb-2">Active Sessions</h6>
+                                <div class="stat-value" id="activeSessionsStat">{{ stats.active_sessions }}</div>
+                            </div>
+                            <i class="fas fa-user-clock fa-2x opacity-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- AI Insights and Risk Alerts in one row -->
+        <div class="row mb-4">
+            <!-- AI Insights -->
+            <div class="col-md-4">
+                <div class="card h-100 animate__animated animate__fadeIn">
+                    <div class="card-header bg-info text-white">
+                        <h5 class="mb-0"><i class="fas fa-robot me-2"></i>AI Insights</h5>
+                    </div>
+                    <div class="card-body" id="aiInsights">
+                        {% if ai_insights %}
+                        <ul class="list-unstyled mb-0">
+                            {% for insight in ai_insights %}
+                            <li class="mb-2">
+                                <i class="fas fa-lightbulb text-info me-2"></i>{{ insight }}
+                            </li>
+                            {% endfor %}
+                        </ul>
+                        {% else %}
+                        <p class="text-muted mb-0"><i class="fas fa-info-circle me-2"></i>No insights available</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            <!-- Risk Alerts -->
+            <div class="col-md-4">
+                <div class="card h-100 animate__animated animate__fadeIn">
+                    <div class="card-header bg-warning text-dark">
+                        <h5 class="mb-0"><i class="fas fa-exclamation-triangle me-2"></i>Risk Alerts</h5>
+                    </div>
+                    <div class="card-body" id="riskAlerts">
+                        {% if risk_alerts %}
+                        <ul class="list-unstyled mb-0">
+                            {% for ra in risk_alerts %}
+                            <li class="mb-2">
+                                <i class="fas fa-circle text-warning me-2"></i>
+                                <strong>{{ ra.subject }}</strong> - {{ ra.faculty }}
+                                <span class="badge bg-warning text-dark ms-2">No Attendance</span>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                        {% else %}
+                        <p class="text-muted mb-0"><i class="fas fa-check-circle text-success me-2"></i>All active sessions have attendance</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+            </div>
+        </div>
+
+        <!-- Sessions Table -->
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">Active Sessions</h5>
+                <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#createSessionModal">
+                    <i class="fas fa-qrcode me-2"></i> Generate QR
+                </button>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table id="sessionsTable" class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Session</th>
+                                <th>Faculty</th>
+                                <th>Branch</th>
+                                <th>Semester</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="sessionsTableBody">
+                            {% for session in sessions %}
+                            <tr>
+                                <td>{{ session.subject }}</td>
+                                <td>{{ session.faculty }}</td>
+                                <td>{{ session.branch }}</td>
+                                <td>{{ session.semester }}</td>
+                                <td>
+                                    <span class="badge bg-{{ 'success' if session.is_active else 'danger' }}">
+                                        {{ 'Active' if session.is_active else 'Inactive' }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="btn-group">
+                                        <button type="button" class="btn btn-sm btn-info" onclick="viewQR('{{ session.token }}')" title="View QR">
+                                            <i class="fas fa-qrcode"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-{{ 'warning' if session.is_active else 'success' }}" 
+                                                onclick="toggleSession('{{ session.token }}', this)" 
+                                                title="{{ 'Deactivate' if session.is_active else 'Activate' }}">
+                                            <i class="fas fa-{{ 'pause' if session.is_active else 'play' }}"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-primary" onclick="viewHistory('{{ session.token }}')" title="History">
+                                            <i class="fas fa-history"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-danger" onclick="deleteSession('{{ session.token }}', this)" title="Delete">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Create Session Modal -->
+        <div class="modal fade" id="createSessionModal" tabindex="-1" aria-hidden="true">
+          <div class="modal-dialog">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h5 class="modal-title">New Session</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+              </div>
+              <div class="modal-body">
+                <form id="createSessionForm">
+                  <div class="mb-3">
+                    <label class="form-label">Session Name</label>
+                    <input type="text" class="form-control" name="session" required />
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label">Faculty</label>
+                    <input type="text" class="form-control" name="faculty" required />
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label">Branch</label>
+                    <input type="text" class="form-control" name="branch" required />
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label">Semester</label>
+                    <input type="text" class="form-control" name="semester" required />
+                  </div>
+                </form>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-primary" id="createSessionBtn">Generate QR</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- View QR Modal -->
+        <div class="modal fade" id="viewQRModal" tabindex="-1" aria-hidden="true">
+          <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h5 class="modal-title">Session QR Code</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+              </div>
+              <div class="modal-body text-center">
+                <img id="viewQRImage" src="" class="img-fluid" style="max-width:200px;" />
+              </div>
+              <div class="modal-footer justify-content-center">
+                <a id="downloadBtn" class="btn btn-success" download><i class="fas fa-download me-1"></i>Download</a>
+                <a id="openFormBtn" class="btn btn-primary text-white mx-2"><i class="fas fa-external-link-alt me-1"></i>Open Form</a>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- History Modal -->
+        <div class="modal fade" id="historyModal" tabindex="-1" aria-hidden="true">
+          <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h5 class="modal-title">Attendance History</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+              </div>
+              <div class="modal-body">
+                <div class="table-responsive">
+                  <table class="table" id="historyTable">
+                    <thead>
+                      <tr>
+                        <th>Student ID</th>
+                        <th>Name</th>
+                        <th>Timestamp</th>
+                      </tr>
+                    </thead>
+                    <tbody></tbody>
+                  </table>
+                </div>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Scripts -->
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+        <!-- SweetAlert2 -->
+        <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+        <script>
+            async function toggleSession(token, btn) {
+                try {
+                    const response = await fetch(`/admin/toggle-session/${token}`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest'
+                        }
+                    });
+                    const data = await response.json();
+                    if (data.success) {
+                        // Update UI without refresh
+                        const row = btn.closest('tr');
+                        const badge = row.querySelector('td:nth-child(5) .badge');
+                        const isActive = badge.textContent.trim() === 'Active';
+                        
+                        // Update badge with animation
+                        badge.classList.toggle('bg-success', !isActive);
+                        badge.classList.toggle('bg-danger', isActive);
+                        badge.textContent = isActive ? 'Inactive' : 'Active';
+                        badge.classList.add('animate__animated', 'animate__flash');
+                        
+                        // Update button
+                        btn.classList.toggle('btn-warning', !isActive);
+                        btn.classList.toggle('btn-success', isActive);
+                        const icon = btn.querySelector('i');
+                        icon.classList.toggle('fa-pause', !isActive);
+                        icon.classList.toggle('fa-play', isActive);
+                        
+                        // Update risk alerts
+                        updateRiskAlerts();
+                        // Live update
+                        updateAiInsights();
+                        
+                        // Remove animation class
+                        setTimeout(() => badge.classList.remove('animate__animated', 'animate__flash'), 1000);
+                    } else {
+                        Swal.fire('Error', data.error || 'Failed to toggle session', 'error');
+                    }
+                } catch (error) {
+                    console.error('Toggle error:', error);
+                    Swal.fire('Error', 'Failed to toggle session status', 'error');
+                }
+            }
+
+            async function deleteSession(token, btn) {
+                const result = await Swal.fire({
+                    title: 'Are you sure?',
+                    text: "You won't be able to revert this!",
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#d33',
+                    cancelButtonColor: '#3085d6',
+                    confirmButtonText: 'Yes, delete it!'
+                });
+
+                if (result.isConfirmed) {
+                    try {
+                        const response = await fetch(`/admin/delete-session/${token}`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-Requested-With': 'XMLHttpRequest'
+                            }
+                        });
+                        const data = await response.json();
+                        if (data.success) {
+                            // Remove row with animation
+                            const row = btn.closest('tr');
+                            row.classList.add('animate__animated', 'animate__fadeOut');
+                            row.addEventListener('animationend', () => {
+                                row.remove();
+                                // Update risk alerts after removing session
+                                updateRiskAlerts();
+                            }, { once: true });
+                        } else {
+                            Swal.fire('Error', data.error || 'Failed to delete session', 'error');
+                        }
+                    } catch (error) {
+                        console.error('Delete error:', error);
+                        Swal.fire('Error', 'Failed to delete session', 'error');
+                    }
+                }
+            }
+
+            // Function to update risk alerts dynamically
+            async function updateRiskAlerts() {
+                try {
+                    const res = await fetch('/admin/get-risk-alerts', {headers: {'X-Requested-With': 'XMLHttpRequest'}});
+                    const data = await res.json();
+                    const container = document.getElementById('riskAlerts');
+                    if(data.success) {
+                        if(data.risk_alerts.length) {
+                            let html = '<ul class="list-unstyled mb-0">';
+                            data.risk_alerts.forEach(ra => {
+                                html += `<li class="mb-2"><i class="fas fa-circle text-warning me-2"></i><strong>${ra.subject}</strong> - ${ra.faculty}<span class="badge bg-warning text-dark ms-2">No Attendance</span></li>`;
+                            });
+                            html += '</ul>';
+                            container.innerHTML = html;
+                        } else {
+                            container.innerHTML = '<p class="text-muted mb-0"><i class="fas fa-check-circle text-success me-2"></i>All active sessions have attendance</p>';
+                        }
+                    }
+                } catch(e) { console.error(e); }
+            }
+            // Fetch and render AI insights
+            async function updateAiInsights() {
+                try {
+                    const res = await fetch('/admin/get-ai-insights', {headers: {'X-Requested-With': 'XMLHttpRequest'}});
+                    const data = await res.json();
+                    const container = document.getElementById('aiInsights');
+                    if(data.success) {
+                        if(data.ai_insights.length) {
+                            let html = '<ul class="list-unstyled mb-0">';
+                            data.ai_insights.forEach(ins => {
+                                html += `<li class="mb-2"><i class="fas fa-lightbulb text-info me-2"></i>${ins}</li>`;
+                            });
+                            html += '</ul>';
+                            container.innerHTML = html;
+                        } else {
+                            container.innerHTML = '<p class="text-muted mb-0"><i class="fas fa-info-circle me-2"></i>No insights available</p>';
+                        }
+                    }
+                } catch(e) { console.error(e); }
+            }
+            // Fetch and render Sessions table
+            async function updateSessions() {
+                try {
+                    const res = await fetch('/admin/get-sessions', {headers:{'X-Requested-With':'XMLHttpRequest'}});
+                    const data = await res.json();
+                    if(data.success) {
+                        const tbody = document.getElementById('sessionsTableBody');
+                        let html = '';
+                        data.sessions.forEach(s => {
+                            html += `<tr>
+                                <td>${s.subject}</td>
+                                <td>${s.faculty}</td>
+                                <td>${s.branch}</td>
+                                <td>${s.semester}</td>
+                                <td><span class="badge bg-${s.is_active?'success':'danger'}">${s.is_active?'Active':'Inactive'}</span></td>
+                                <td><div class="btn-group">
+                                    <button class="btn btn-sm btn-info" onclick="viewQR('${s.token}')"><i class="fas fa-qrcode"></i></button>
+                                    <button class="btn btn-sm btn-${s.is_active?'warning':'success'}" onclick="toggleSession('${s.token}', this)"><i class="fas fa-${s.is_active?'pause':'play'}"></i></button>
+                                    <button class="btn btn-sm btn-primary" onclick="viewHistory('${s.token}')"><i class="fas fa-history"></i></button>
+                                    <button class="btn btn-sm btn-danger" onclick="deleteSession('${s.token}', this)"><i class="fas fa-trash"></i></button>
+                                </div></td>
+                            </tr>`;
+                        });
+                        tbody.innerHTML = html;
+                    }
+                } catch(err) { console.error('Sessions update error:', err); }
+            }
+
+            async function viewQR(token) {
+                try {
+                    const res = await fetch(`/admin/get-qr/${token}`, {
+                        headers: {'Content-Type':'application/json','X-Requested-With':'XMLHttpRequest'}
+                    });
+                    const data = await res.json();
+                    if (data.qr) {
+                        const img = document.getElementById('viewQRImage');
+                        img.src = `data:image/png;base64,${data.qr}`;
+                        const dl = document.getElementById('downloadBtn');
+                        dl.href = img.src;
+                        dl.download = `qr_${token}.png`;
+                        const of = document.getElementById('openFormBtn');
+                        of.href = `/attend/${token}`;
+                        of.target = '_blank';
+                        new bootstrap.Modal(document.getElementById('viewQRModal')).show();
+                    } else {
+                        Swal.fire('Error', data.error || 'Failed to fetch QR', 'error');
+                    }
+                } catch (error) {
+                    console.error('View QR error:', error);
+                    Swal.fire('Error', 'Unable to fetch QR code', 'error');
+                }
+            }
+
+            async function viewHistory(token) {
+                try {
+                    const res = await fetch(`/admin/attendance-history/${token}`, {
+                        headers: {'X-Requested-With':'XMLHttpRequest'}
+                    });
+                    const data = await res.json();
+                    const tbody = document.querySelector('#historyTable tbody');
+                    tbody.innerHTML = '';
+                    if (Array.isArray(data) && data.length) {
+                        data.forEach(r => {
+                            const tr = document.createElement('tr');
+                            tr.innerHTML = `
+                                <td>${r.student_id||''}</td>
+                                <td>${r.student_name||''}</td>
+                                <td>${new Date(r.created_at).toLocaleString()}</td>`;
+                            tbody.appendChild(tr);
+                        });
+                    } else {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = '<td colspan="3" class="text-center">No records</td>';
+                        tbody.appendChild(tr);
+                    }
+                    new bootstrap.Modal(document.getElementById('historyModal')).show();
+                } catch(e) {
+                    console.error('History error:', e);
+                    Swal.fire('Error', 'Unable to fetch history','error');
+                }
+            }
+        </script>
+
+        <script>
+          // Create session and QR
+          document.getElementById('createSessionBtn').addEventListener('click', async (e) => {
+            e.preventDefault();
+            const form = document.getElementById('createSessionForm');
+            const data = {
+              session: form.session.value,
+              faculty: form.faculty.value,
+              branch: form.branch.value,
+              semester: form.semester.value
+            };
+            try {
+              const res = await fetch('/admin/generate-qr', {
+                method: 'POST',
+                headers: {'Content-Type':'application/json','X-Requested-With':'XMLHttpRequest'},
+                body: JSON.stringify(data)
+              });
+              const json = await res.json();
+              if (json.success) {
+                // Show QR
+                const img = document.getElementById('viewQRImage');
+                img.src = `data:image/png;base64,${json.qr}`;
+                // Download link
+                const dl = document.getElementById('downloadBtn');
+                dl.href = img.src;
+                dl.download = `qr_${json.token}.png`;
+                // Hide creation modal, show QR modal
+                bootstrap.Modal.getInstance(document.getElementById('createSessionModal')).hide();
+                new bootstrap.Modal(document.getElementById('viewQRModal')).show();
+                // Refresh sessions table live
+                updateSessions(); updateRiskAlerts(); updateAiInsights();
+              } else {
+                Swal.fire('Error', json.error||'Failed to generate QR','error');
+              }
+            } catch (e) {
+              Swal.fire('Error', 'Unable to generate QR','error');
+            }
+          });
+          // Reload dashboard when QR modal closes to show new session
+          document.getElementById('viewQRModal').addEventListener('hidden.bs.modal', () => {
+            updateRiskAlerts(); updateAiInsights();
+          });
+        </script>
+
+        <script>
+            // Live update on load
+            document.addEventListener('DOMContentLoaded', () => {
+                updateRiskAlerts();
+                updateAiInsights();
+            });
+        </script>
+    </div>
+</div>
+</body>
+</html>
