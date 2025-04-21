@@ -197,41 +197,27 @@ supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 # Create tables if they don't exist
 def init_db():
     try:
-        # Create qr_tokens table
-        try:
-            # Try to select from qr_tokens table
-            result = supabase.table('qr_tokens').select('*').limit(1).execute()
-            print("qr_tokens table exists")
-        except Exception:
-            print("qr_tokens table missing; please create it in Supabase.")
+        # Connect to Supabase
+        url = os.getenv('SUPABASE_URL')
+        key = os.getenv('SUPABASE_KEY')
         
-        # Create attendance table
-        try:
-            result = supabase.table('attendance').select('*').limit(1).execute()
-            print("attendance table exists")
-        except Exception:
-            print("attendance table missing; please create it in Supabase.")
+        # Remove brackets if they exist in the URL
+        if url and url.startswith('[') and url.endswith(']'):
+            url = url[1:-1]
         
-        # Create admins table
-        try:
-            result = supabase.table('admins').select('*').limit(1).execute()
-            print("admins table exists")
-        except Exception as e:
-            print(f"Creating admins table: {e}")
-            try:
-                supabase.table('admins').insert({
-                    'username': 'dummy',
-                    'password_hash': 'dummy',
-                    'created_at': datetime.now().isoformat()
-                }).execute()
-                # Delete the dummy record
-                supabase.table('admins').delete().eq('username', 'dummy').execute()
-            except Exception as e:
-                print(f"Error creating admins table: {e}")
-                pass
+        print(f"Connecting to Supabase at {url}")
+        
+        # Skip database initialization to avoid errors
+        # Just log that we're skipping it
+        print("Skipping database initialization to avoid errors")
+        print("Please ensure the following tables exist in your Supabase database:")
+        print("- admins (username, password_hash, created_at)")
+        print("- qr_tokens (token, session, created_at, expires_at)")
+        print("- attendance (id, student_id, created_at, status)")
         
     except Exception as e:
-        print(f"Database initialization error: {e}")
+        print(f"Database initialization error: {str(e)}")
+        # Continue execution even if database init fails
 
 # Initialize database
 init_db()
