@@ -11,7 +11,69 @@ import io
 from io import BytesIO
 from datetime import datetime, timedelta, timezone
 from functools import wraps
-from supabase import create_client
+# Custom Supabase implementation using requests
+import requests
+import json
+
+def create_client(supabase_url, supabase_key):
+    class SupabaseClient:
+        def __init__(self, url, key):
+            self.url = url
+            self.key = key
+            self.headers = {
+                'apikey': key,
+                'Authorization': f'Bearer {key}',
+                'Content-Type': 'application/json'
+            }
+        
+        def table(self, table_name):
+            class Table:
+                def __init__(self, url, headers, table):
+                    self.url = url
+                    self.headers = headers
+                    self.table = table
+                    self.base_url = f"{url}/rest/v1"
+                
+                def select(self, *columns):
+                    self.select_columns = ','.join(columns) if columns else '*'
+                    return self
+                
+                def insert(self, data, upsert=False):
+                    url = f"{self.base_url}/{self.table}"
+                    params = {'prefer': 'return=representation'}
+                    if upsert:
+                        params['on_conflict'] = 'id'
+                    response = requests.post(url, headers=self.headers, params=params, json=data)
+                    return response.json()
+                
+                def update(self, data):
+                    url = f"{self.base_url}/{self.table}"
+                    params = {'prefer': 'return=representation'}
+                    response = requests.patch(url, headers=self.headers, params=params, json=data)
+                    return response.json()
+                
+                def delete(self):
+                    url = f"{self.base_url}/{self.table}"
+                    params = {'prefer': 'return=representation'}
+                    response = requests.delete(url, headers=self.headers, params=params)
+                    return response.json()
+                
+                def eq(self, column, value):
+                    self.filter_column = column
+                    self.filter_value = value
+                    return self
+                
+                def execute(self):
+                    url = f"{self.base_url}/{self.table}"
+                    params = {'select': self.select_columns}
+                    if hasattr(self, 'filter_column') and hasattr(self, 'filter_value'):
+                        params[self.filter_column] = f'eq.{self.filter_value}'
+                    response = requests.get(url, headers=self.headers, params=params)
+                    return response.json()
+            
+            return Table(self.url, self.headers, table_name)
+    
+    return SupabaseClient(supabase_url, supabase_key)
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask import Flask, render_template, request, redirect, session, jsonify, flash
 import csv
