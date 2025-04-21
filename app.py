@@ -186,14 +186,14 @@ def admin_register():
         try:
             app.logger.info("Attempting to create new user in database")
             # Direct HTTP request to create admin user
-            url = SUPABASE_URL
+            url = supabase_url
             if url and url.startswith('[') and url.endswith(']'):
                 url = url[1:-1]
             
             admin_url = f"{url}/rest/v1/admins"
             headers = {
-                'apikey': SUPABASE_KEY,
-                'Authorization': f'Bearer {SUPABASE_KEY}',
+                'apikey': supabase_key,
+                'Authorization': f'Bearer {supabase_key}',
                 'Content-Type': 'application/json'
             }
             
@@ -305,14 +305,14 @@ def admin_login():
             # Create a default admin user if none exists
             try:
                 # Use direct HTTP request to create admin user
-                url = SUPABASE_URL
+                url = supabase_url
                 if url and url.startswith('[') and url.endswith(']'):
                     url = url[1:-1]
                 
                 admin_url = f"{url}/rest/v1/admins"
                 headers = {
-                    'apikey': SUPABASE_KEY,
-                    'Authorization': f'Bearer {SUPABASE_KEY}',
+                    'apikey': supabase_key,
+                    'Authorization': f'Bearer {supabase_key}',
                     'Content-Type': 'application/json'
                 }
                 
