@@ -150,7 +150,7 @@ def admin_register():
         # Check if username already exists
         try:
             existing_user = supabase.table('admins').select('username').eq('username', username).execute()
-            if existing_user.data:
+            if existing_user:
                 if is_ajax:
                     return jsonify({'success': False, 'error': 'Username already exists'})
                 flash('Username already exists', 'danger')
@@ -346,7 +346,7 @@ def admin_dashboard():
             .select('*')\
             .order('created_at', desc=True)\
             .execute()
-        tokens = res.data or []
+        tokens = res
         now = datetime.now(timezone.utc)
         sessions_list = []
         for t in tokens:
@@ -370,7 +370,7 @@ def admin_dashboard():
                 continue
         total_sessions = len(tokens)
         att_res = supabase.table('attendance').select('*').execute()
-        att_list = att_res.data or []
+        att_list = att_res
         total_attendance = len(att_list)
         # Risk alerts: active sessions with no attendance
         risk_alerts = []
@@ -413,7 +413,7 @@ def attendance_count():
     # Return total number of attendance records
     try:
         res = supabase.table('attendance').select('id').execute()
-        count = len(res.data or [])
+        count = len(res)
         return jsonify({'count': count})
     except Exception as e:
         app.logger.error(f"Attendance count error: {e}")
@@ -425,9 +425,9 @@ def get_qr(token):
     try:
         # Fetch token record
         result = supabase.table('qr_tokens').select('*').eq('token', token).execute()
-        if not result.data:
+        if not result:
             return jsonify({'error': 'Invalid token'}), 404
-        rec = result.data[0]
+        rec = result[0]
         # Generate QR image
         qr = segno.make(f"{request.host_url}attend/{token}", error='H')
         buf = io.BytesIO()
@@ -448,9 +448,9 @@ def toggle_session(token):
     try:
         # Fetch session
         res = supabase.table('qr_tokens').select('expires_at').eq('token', token).execute()
-        if not res.data:
+        if not res:
             return jsonify({'error': 'Session not found'}), 404
-        expires_at_str = res.data[0]['expires_at']
+        expires_at_str = res[0]['expires_at']
         # Parse expiry
         expires_at = datetime.fromisoformat(expires_at_str.replace('Z', '+00:00'))
         if expires_at.tzinfo is None:
@@ -484,9 +484,10 @@ def attendance_history(token):
     try:
         # Fetch session QR token details
         qr_res = supabase.table('qr_tokens').select('*').eq('token', token).execute()
-        if not qr_res.data:
+        # execute() returns list of records
+        if not qr_res:
             return jsonify({'error': 'Invalid token'}), 404
-        session_data = qr_res.data[0]
+        session_data = qr_res[0]
         # Query attendance within session timeframe
         created = session_data['created_at']
         expires = session_data['expires_at']
@@ -495,7 +496,8 @@ def attendance_history(token):
             .gte('created_at', created) \
             .lte('created_at', expires) \
             .execute()
-        return jsonify(att_res.data or [])
+        # execute() returns list
+        return jsonify(att_res or [])
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -504,9 +506,9 @@ def attendance_history(token):
 def export_attendance(token):
     # Fetch session token record
     qr_res = supabase.table('qr_tokens').select('*').eq('token', token).execute()
-    if not qr_res.data:
+    if not qr_res:
         return render_template('error.html', message='Invalid token'), 404
-    session_data = qr_res.data[0]
+    session_data = qr_res[0]
     created = session_data['created_at']
     expires = session_data['expires_at']
     # Query relevant attendance
@@ -515,7 +517,8 @@ def export_attendance(token):
         .gte('created_at', created) \
         .lte('created_at', expires) \
         .execute()
-    records = att_res.data or []
+    # execute() returns list
+    records = att_res or []
     # Generate CSV
     output = io.StringIO()
     writer = csv.writer(output)
@@ -558,7 +561,7 @@ def generate_qr():
         existing = supabase.table('qr_tokens')\
             .select('token', 'expires_at')\
             .eq('session', session_str)\
-            .execute().data or []
+            .execute()
         for rec in existing:
             try:
                 exp = datetime.fromisoformat(rec['expires_at'].replace('Z', '+00:00'))
@@ -574,9 +577,9 @@ def generate_qr():
             .eq('session', session_str)\
             .gte('expires_at', now.isoformat())\
             .execute()
-        if existing.data and existing.data[0]:
+        if existing and existing[0]:
             # Reuse existing token
-            existing_rec = existing.data[0]
+            existing_rec = existing[0]
             token = existing_rec['token']
             expires = datetime.fromisoformat(existing_rec['expires_at'].replace('Z', '+00:00'))
             # Generate QR image
@@ -610,7 +613,7 @@ def generate_qr():
                 'expires_at': expires.isoformat()
             }
             res = supabase.table('qr_tokens').insert(rec).execute()
-            if not res.data:
+            if not res:
                 return jsonify({'error': 'Failed to create session'}), 500
             return jsonify({'success': True,
                             'qr': qr_b64,
@@ -630,7 +633,7 @@ def generate_qr():
 def get_sessions():
     try:
         res = supabase.table('qr_tokens').select('*').order('created_at', desc=True).execute()
-        tokens = res.data or []
+        tokens = res
         now = datetime.now(timezone.utc)
         sessions = []
         for t in tokens:
@@ -656,7 +659,7 @@ def get_sessions():
 def get_active_sessions():
     try:
         result = supabase.table('qr_tokens').select('*').execute()
-        sessions = result.data if result.data else []
+        sessions = result
         active_sessions = [session for session in sessions if session['expires_at'] > datetime.now().isoformat()]
         return jsonify(active_sessions)
     except Exception as e:
@@ -702,10 +705,10 @@ def attend(token):
         # Get session details
         result = supabase.table('qr_tokens').select('*').eq('token', token).execute()
         
-        if not result.data:
+        if not result:
             return render_template('error.html', message='Invalid or expired QR code')
             
-        session_data = result.data[0]
+        session_data = result[0]
         
         # Check if expired
         expires_at = datetime.fromisoformat(session_data['expires_at'].replace('Z', '+00:00'))
@@ -755,7 +758,7 @@ def attend(token):
             
             result = supabase.table('attendance').insert(attendance_data).execute()
             
-            if not result.data:
+            if not result:
                 return jsonify({'success': False, 'message': 'Failed to save attendance'})
             
             return jsonify({'success': True})
@@ -772,7 +775,7 @@ def get_risk_alerts():
     try:
         # Get all tokens
         res = supabase.table('qr_tokens').select('*').execute()
-        all_tokens = res.data or []
+        all_tokens = res
         tokens = [t for t in all_tokens if t.get('session','').split(' - ')[1:2] and t['session'].split(' - ')[1] == session.get('admin')]
         now = datetime.now(timezone.utc)
         sessions_list = []
@@ -798,7 +801,7 @@ def get_risk_alerts():
         
         # Get attendance records
         att_res = supabase.table('attendance').select('*').execute()
-        all_att = att_res.data or []
+        all_att = att_res
         valid_tokens = {t['token'] for t in tokens}
         att_list = [a for a in all_att if a.get('session_token') in valid_tokens]
         
@@ -821,7 +824,7 @@ def get_ai_insights():
             .select('*')\
             .order('created_at', desc=True)\
             .execute()
-        tokens = res.data or []
+        tokens = res
         now = datetime.now(timezone.utc)
         sessions_list = []
         for t in tokens:
@@ -832,10 +835,11 @@ def get_ai_insights():
             parts = t['session'].split(' - ')
             sessions_list.append({'token': t['token'], 'subject': parts[0] if parts else '' , 'is_active': is_active})
         att_res = supabase.table('attendance').select('*').execute()
-        att_list = att_res.data or []
+        att_list = att_res
         # Compute insights
         counts = Counter(a.get('session_token') for a in att_list)
         ai_insights = []
+        # Top session by attendance
         if counts:
             top_token, top_count = counts.most_common(1)[0]
             top_s = next((x for x in sessions_list if x['token']==top_token), None)
