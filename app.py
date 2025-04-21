@@ -127,6 +127,11 @@ def create_client(supabase_url, supabase_key):
 # Initialize Supabase client
 supabase_url = os.getenv('SUPABASE_URL', 'https://aaluawvcohqfhevkdnuv.supabase.co')
 supabase_key = os.getenv('SUPABASE_KEY', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFhbHVhd3Zjb2hxZmhldmtkbnV2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDIyNzY3MzcsImV4cCI6MjA1Nzg1MjczN30.kKL_B4sw1nwY6lbzgyPHQYoC_uqDsPkT51ZOnhr6MNA')
+
+# Ensure URL doesn't have brackets
+if supabase_url and supabase_url.startswith('[') and supabase_url.endswith(']'):
+    supabase_url = supabase_url[1:-1]
+
 supabase = create_client(supabase_url, supabase_key)
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask import Flask, render_template, request, redirect, session, jsonify, flash
@@ -186,15 +191,14 @@ def admin_register():
         try:
             app.logger.info("Attempting to create new user in database")
             # Direct HTTP request to create admin user
-            url = supabase_url
-            if url and url.startswith('[') and url.endswith(']'):
-                url = url[1:-1]
+            admin_url = f"{supabase_url}/rest/v1/admins"
+            app.logger.info(f"Using Supabase URL: {supabase_url}")
             
-            admin_url = f"{url}/rest/v1/admins"
             headers = {
                 'apikey': supabase_key,
                 'Authorization': f'Bearer {supabase_key}',
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'Prefer': 'return=representation'
             }
             
             admin_data = {
@@ -203,8 +207,17 @@ def admin_register():
                 'created_at': datetime.now(timezone.utc).isoformat()
             }
             
-            response = requests.post(admin_url, headers=headers, json=admin_data)
-            response.raise_for_status()
+            # Add timeout and verify settings
+            try:
+                response = requests.post(admin_url, headers=headers, json=admin_data, timeout=10, verify=True)
+                app.logger.info(f"Supabase response status: {response.status_code}")
+                response.raise_for_status()
+            except requests.exceptions.ConnectionError as conn_err:
+                app.logger.error(f"Connection error to Supabase: {conn_err}")
+                if is_ajax:
+                    return jsonify({'success': False, 'error': f"Connection error to database: {conn_err}"})
+                flash(f'Connection error to database. Please try again later.', 'danger')
+                return redirect(url_for('admin_register'))
             
             app.logger.info(f"Successfully registered user: {username}")
             
@@ -305,15 +318,14 @@ def admin_login():
             # Create a default admin user if none exists
             try:
                 # Use direct HTTP request to create admin user
-                url = supabase_url
-                if url and url.startswith('[') and url.endswith(']'):
-                    url = url[1:-1]
+                admin_url = f"{supabase_url}/rest/v1/admins"
+                app.logger.info(f"Default admin creation - Using Supabase URL: {supabase_url}")
                 
-                admin_url = f"{url}/rest/v1/admins"
                 headers = {
                     'apikey': supabase_key,
                     'Authorization': f'Bearer {supabase_key}',
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'Prefer': 'return=representation'
                 }
                 
                 # Check if admin user exists
