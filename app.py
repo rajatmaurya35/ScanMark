@@ -18,6 +18,9 @@ import json
 def create_client(supabase_url, supabase_key):
     class SupabaseClient:
         def __init__(self, url, key):
+            # Remove square brackets if they exist in the URL
+            if url.startswith('[') and url.endswith(']'):
+                url = url[1:-1]
             self.url = url
             self.key = key
             self.headers = {
@@ -39,24 +42,39 @@ def create_client(supabase_url, supabase_key):
                     return self
                 
                 def insert(self, data, upsert=False):
-                    url = f"{self.base_url}/{self.table}"
-                    params = {'prefer': 'return=representation'}
-                    if upsert:
-                        params['on_conflict'] = 'id'
-                    response = requests.post(url, headers=self.headers, params=params, json=data)
-                    return response.json()
+                    try:
+                        url = f"{self.base_url}/{self.table}"
+                        params = {'prefer': 'return=representation'}
+                        if upsert:
+                            params['on_conflict'] = 'id'
+                        response = requests.post(url, headers=self.headers, params=params, json=data)
+                        response.raise_for_status()
+                        return response.json()
+                    except Exception as e:
+                        print(f"Supabase insert error: {str(e)}")
+                        return {}
                 
                 def update(self, data):
-                    url = f"{self.base_url}/{self.table}"
-                    params = {'prefer': 'return=representation'}
-                    response = requests.patch(url, headers=self.headers, params=params, json=data)
-                    return response.json()
+                    try:
+                        url = f"{self.base_url}/{self.table}"
+                        params = {'prefer': 'return=representation'}
+                        response = requests.patch(url, headers=self.headers, params=params, json=data)
+                        response.raise_for_status()
+                        return response.json()
+                    except Exception as e:
+                        print(f"Supabase update error: {str(e)}")
+                        return {}
                 
                 def delete(self):
-                    url = f"{self.base_url}/{self.table}"
-                    params = {'prefer': 'return=representation'}
-                    response = requests.delete(url, headers=self.headers, params=params)
-                    return response.json()
+                    try:
+                        url = f"{self.base_url}/{self.table}"
+                        params = {'prefer': 'return=representation'}
+                        response = requests.delete(url, headers=self.headers, params=params)
+                        response.raise_for_status()
+                        return response.json()
+                    except Exception as e:
+                        print(f"Supabase delete error: {str(e)}")
+                        return {}
                 
                 def eq(self, column, value):
                     self.filter_column = column
@@ -64,12 +82,18 @@ def create_client(supabase_url, supabase_key):
                     return self
                 
                 def execute(self):
-                    url = f"{self.base_url}/{self.table}"
-                    params = {'select': self.select_columns}
-                    if hasattr(self, 'filter_column') and hasattr(self, 'filter_value'):
-                        params[self.filter_column] = f'eq.{self.filter_value}'
-                    response = requests.get(url, headers=self.headers, params=params)
-                    return response.json()
+                    try:
+                        url = f"{self.base_url}/{self.table}"
+                        params = {'select': self.select_columns}
+                        if hasattr(self, 'filter_column') and hasattr(self, 'filter_value'):
+                            params[self.filter_column] = f'eq.{self.filter_value}'
+                        response = requests.get(url, headers=self.headers, params=params)
+                        response.raise_for_status()  # Raise exception for HTTP errors
+                        return response.json()
+                    except Exception as e:
+                        print(f"Supabase API error: {str(e)}")
+                        # Return empty list on error to prevent app from crashing
+                        return []
             
             return Table(self.url, self.headers, table_name)
     
