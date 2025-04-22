@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: scanmark
+    env: python
+    plan: free
+    branch: full-project-2025
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn wsgi:app
+    healthCheckPath: /
+    envVars:
+      - key: FLASK_APP
+        value: wsgi.py
+      - key: FLASK_ENV
+        value: production
+      - key: SECRET_KEY
+        value: scanmark-production-key-2025
+      - key: SUPABASE_URL
+        value: https://aaluawvcohqfhevkdnuv.supabase.co
+      - key: SUPABASE_KEY
+        value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFhbHVhd3Zjb2hxZmhldmtkbnV2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDIyNzY3MzcsImV4cCI6MjA1Nzg1MjczN30.kKL_B4sw1nwY6lbzgyPHQYoC_uqDsPkT51ZOnhr6MNA
