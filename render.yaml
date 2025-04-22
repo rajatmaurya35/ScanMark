@@ -5,9 +5,16 @@ services:
     branch: full-project-2025
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn wsgi:app
+    autoDeploy: true
+    healthCheckPath: /
     envVars:
       - key: FLASK_APP
         value: wsgi.py
       - key: FLASK_ENV
         value: production
-      - fromFile: .env
+      - key: SECRET_KEY
+        value: scanmark-production-key-2025
+      - key: SUPABASE_URL
+        value: https://aaluawvcohqfhevkdnuv.supabase.co
+      - key: SUPABASE_KEY
+        sync: false
