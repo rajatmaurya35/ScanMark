@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: scanmark-advance
+    name: scanmark
     env: python
     branch: full-project-2025
     buildCommand: pip install -r requirements.txt
